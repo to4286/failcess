@@ -84,7 +84,20 @@ const MyPage = () => {
                 <h1 className="font-heading text-2xl font-bold text-foreground mb-1">
                   {currentUser.nickname}
                 </h1>
-                <p className="text-muted-foreground">{currentUser.bio}</p>
+                <p className="text-muted-foreground mb-3">{currentUser.bio}</p>
+                
+                {/* Follower/Following Stats */}
+                <div className="flex items-center gap-4 text-sm">
+                  <button className="hover:text-foreground transition-colors">
+                    <span className="font-semibold text-foreground">120</span>
+                    <span className="text-muted-foreground ml-1">Followers</span>
+                  </button>
+                  <span className="text-muted-foreground">·</span>
+                  <button className="hover:text-foreground transition-colors">
+                    <span className="font-semibold text-foreground">15</span>
+                    <span className="text-muted-foreground ml-1">Following</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
