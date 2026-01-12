@@ -2,9 +2,11 @@ import { PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { currentUser } from '@/data/mockData';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Header = () => {
+  const navigate = useNavigate();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="container flex h-16 items-center justify-between">
@@ -18,7 +20,7 @@ const Header = () => {
         </Link>
 
         <div className="flex items-center gap-4">
-          <Button variant="default" size="sm" className="gap-2">
+          <Button variant="default" size="sm" className="gap-2" onClick={() => navigate('/write')}>
             <PenLine className="h-4 w-4" />
             <span className="hidden sm:inline">Write Story</span>
           </Button>

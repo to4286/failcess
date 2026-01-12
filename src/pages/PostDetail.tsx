@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Bookmark } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Bookmark, Pencil, Trash2, Check, X } from 'lucide-react';
 import Header from '@/components/Header';
 import CategoryBadge from '@/components/CategoryBadge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { mockPosts, mockUsers } from '@/data/mockData';
+import { Input } from '@/components/ui/input';
+import { mockPosts, mockUsers, currentUser } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { Comment } from '@/types';
 
@@ -45,6 +46,8 @@ const PostDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState(mockComments);
   const [expandedComments, setExpandedComments] = useState<string[]>([]);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
 
   if (!post) {
     return (
@@ -103,6 +106,35 @@ const PostDetail = () => {
   };
 
   const isCommentLong = (content: string) => content.length > 200;
+
+  const handleEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingContent(comment.content);
+  };
+
+  const handleSaveEdit = (commentId: string) => {
+    if (!editingContent.trim()) return;
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === commentId ? { ...c, content: editingContent } : c
+      )
+    );
+    setEditingCommentId(null);
+    setEditingContent('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingContent('');
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+  };
+
+  const isCommentAuthor = (comment: Comment) => {
+    return comment.author_id === currentUser.id || comment.author_id === 'current';
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -191,39 +223,95 @@ const PostDetail = () => {
                   key={comment.id}
                   className="bg-card rounded-lg border border-border p-4 animate-fade-in"
                 >
-                  <div className="flex items-center gap-3 mb-3">
-                    <Link to={`/user/${comment.author_id}`}>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={comment.author.avatar_url} alt={comment.author.nickname} />
-                        <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
-                          {comment.author.nickname.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Link>
-                    <div>
-                      <Link
-                        to={`/user/${comment.author_id}`}
-                        className="text-sm font-medium text-foreground hover:text-navy-light transition-colors"
-                      >
-                        {comment.author.nickname}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <Link to={`/user/${comment.author_id}`}>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={comment.author.avatar_url} alt={comment.author.nickname} />
+                          <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
+                            {comment.author.nickname.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
                       </Link>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(comment.created_at)}
-                      </p>
+                      <div>
+                        <Link
+                          to={`/user/${comment.author_id}`}
+                          className="text-sm font-medium text-foreground hover:text-navy-light transition-colors"
+                        >
+                          {comment.author.nickname}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(comment.created_at)}
+                        </p>
+                      </div>
                     </div>
+                    
+                    {/* Edit/Delete buttons - only for comment author */}
+                    {isCommentAuthor(comment) && editingCommentId !== comment.id && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditComment(comment)}
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors"
+                          title="Edit comment"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
+                          title="Delete comment"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {isCommentLong(comment.content) && !expandedComments.includes(comment.id)
-                      ? `${comment.content.slice(0, 200)}...`
-                      : comment.content}
-                  </p>
-                  {isCommentLong(comment.content) && (
-                    <button
-                      onClick={() => toggleCommentExpand(comment.id)}
-                      className="text-accent text-sm mt-2 hover:underline"
-                    >
-                      {expandedComments.includes(comment.id) ? 'Show less' : 'Read more'}
-                    </button>
+
+                  {/* Editing mode */}
+                  {editingCommentId === comment.id ? (
+                    <div className="space-y-3">
+                      <Textarea
+                        value={editingContent}
+                        onChange={(e) => setEditingContent(e.target.value)}
+                        className="min-h-[80px] resize-none text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveEdit(comment.id)}
+                          disabled={!editingContent.trim()}
+                          className="gap-1"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                          className="gap-1"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-foreground leading-relaxed">
+                        {isCommentLong(comment.content) && !expandedComments.includes(comment.id)
+                          ? `${comment.content.slice(0, 200)}...`
+                          : comment.content}
+                      </p>
+                      {isCommentLong(comment.content) && (
+                        <button
+                          onClick={() => toggleCommentExpand(comment.id)}
+                          className="text-accent text-sm mt-2 hover:underline"
+                        >
+                          {expandedComments.includes(comment.id) ? 'Show less' : 'Read more'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
