@@ -1,0 +1,5 @@
+# Edge Function: delete-user-account
+# 게이트웨이 JWT 검증 비활성화 (ES256/HS256 호환 이슈 회피)
+# 함수 내부에서 getUser(jwt)로 직접 검증하므로 보안 유지
+[functions.delete-user-account]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { User, Post, Category } from '@/types';
+import { User, Post } from '@/types';
 
 export const mockUsers: User[] = [
   {
@@ -36,7 +36,6 @@ export const mockPosts: Post[] = [
     id: '1',
     title: 'How I Burned Through $2M in 18 Months',
     content: 'When we raised our Series A, I thought we had made it. The money felt endless, and we started spending like it was. New offices, aggressive hiring, expensive tools we didn\'t need. Looking back, the signs were there from day one. Our burn rate was unsustainable, but I was too caught up in the growth narrative to see it. The hardest lesson? Sometimes the best thing you can do for your company is to slow down and focus on fundamentals. We hired 40 people in 6 months, but we should have focused on finding product-market fit first.',
-    category: 'Finance',
     author_id: '1',
     author: mockUsers[0],
     save_count: 234,
@@ -48,7 +47,6 @@ export const mockPosts: Post[] = [
     id: '2',
     title: 'The Marketing Campaign That Almost Killed Us',
     content: 'We spent $500K on a Super Bowl adjacent campaign thinking it would put us on the map. It did—but for all the wrong reasons. Our servers crashed, customer support was overwhelmed, and the viral moment turned into a PR nightmare. The lesson here isn\'t that bold marketing is bad. It\'s that you need to be operationally ready for success. We had the marketing muscle but not the infrastructure to support it.',
-    category: 'Marketing',
     author_id: '2',
     author: mockUsers[1],
     save_count: 189,
@@ -60,7 +58,6 @@ export const mockPosts: Post[] = [
     id: '3',
     title: 'Why Our "Perfect" MVP Failed',
     content: 'We spent 14 months building what we thought was the perfect product. Every feature was polished, every edge case handled. When we finally launched, crickets. Nobody cared. The problem? We never talked to customers. We built what we wanted, not what the market needed. Now I advise founders to ship something ugly in 6 weeks and iterate. The market doesn\'t care about your perfect code.',
-    category: 'MVP',
     author_id: '3',
     author: mockUsers[2],
     save_count: 312,
@@ -72,7 +69,6 @@ export const mockPosts: Post[] = [
     id: '4',
     title: 'The Hiring Mistake That Cost Us Everything',
     content: 'I hired my best friend as CTO. It seemed like a no-brainer—we worked well together, trusted each other completely. But when things got tough, our friendship made it impossible to have hard conversations. Performance issues went unaddressed. By the time I realized we needed a change, it was too late. The company culture had fractured, and we lost our best engineers. Never hire someone you can\'t fire.',
-    category: 'HR',
     author_id: '4',
     author: mockUsers[3],
     save_count: 276,
@@ -84,7 +80,6 @@ export const mockPosts: Post[] = [
     id: '5',
     title: 'Ignoring Red Flags: A Founder\'s Confession',
     content: 'The investors were asking hard questions, the team was burning out, and customers were churning. But I kept pushing forward, convinced that the next feature, the next hire, the next round would fix everything. It took losing everything to realize that sometimes the bravest thing a founder can do is admit defeat and pivot early. Don\'t let ego kill your company.',
-    category: 'Other',
     author_id: '1',
     author: mockUsers[0],
     save_count: 198,

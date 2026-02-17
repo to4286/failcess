@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
 @layer base {
   :root {
@@ -114,6 +114,44 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  /* 입력 필드 예외 처리 - 텍스트 입력 및 선택 가능 */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  /* 읽기 영역 예외 처리 - 게시물 본문, 댓글 등 텍스트 선택 가능 */
+  .prose,
+  .prose *,
+  [data-read-only="true"],
+  /* 게시물 본문 영역 (PostDetail) - prose 클래스 내부의 모든 요소 */
+  .prose p,
+  .prose div,
+  .prose span,
+  .prose li,
+  .prose blockquote,
+  /* 댓글 내용 영역 (CommentSection) - 댓글 카드 내부의 텍스트 */
+  .bg-card.border.rounded-lg p.text-sm,
+  /* 일반적으로 텍스트를 선택할 수 있어야 하는 요소들 */
+  article[class*="prose"] p,
+  article[class*="prose"] div {
+    cursor: auto;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
   }
 
   h1, h2, h3, h4, h5, h6 {
