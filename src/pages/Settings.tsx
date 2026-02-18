@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { cn } from '@/lib/utils';
 import { INTEREST_TAGS } from '@/lib/constants';
 
@@ -209,8 +210,26 @@ export default function Settings() {
       const { data, error } = await supabase.functions.invoke('delete-user-account', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        let errMsg: string = error.message ?? '회원 탈퇴에 실패했습니다.';
+        if (error instanceof FunctionsHttpError && error.context) {
+          try {
+            const body = await (error.context as Response).json();
+            const raw = body?.error;
+            if (typeof raw === 'string') errMsg = raw;
+            else if (raw && typeof raw === 'object' && typeof raw.message === 'string') errMsg = raw.message;
+            else if (raw != null) errMsg = String(raw);
+          } catch {
+            /* ignore parse error */
+          }
+        }
+        throw new Error(errMsg);
+      }
+      if (data?.error) {
+        const raw = data.error;
+        const msg = typeof raw === 'string' ? raw : (raw?.message ?? String(raw ?? ''));
+        throw new Error(msg || '회원 탈퇴에 실패했습니다.');
+      }
 
       await supabase.auth.signOut();
       localStorage.clear();
@@ -218,7 +237,8 @@ export default function Settings() {
       window.location.href = '/';
     } catch (err: any) {
       console.error('회원 탈퇴 실패:', err);
-      toast.error(err?.message ?? '회원 탈퇴에 실패했습니다.');
+      const msg = typeof err?.message === 'string' ? err.message : '회원 탈퇴에 실패했습니다.';
+      toast.error(msg);
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }

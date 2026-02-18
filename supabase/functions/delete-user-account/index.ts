@@ -43,17 +43,52 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { error: rpcError } = await supabaseClient.rpc('delete_user_account', {
-      p_user_id: user.id,
-    });
-    if (rpcError) throw rpcError;
-
+    const uid = user.id;
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-    if (deleteError) throw deleteError;
+
+    const tables = [
+      { table: 'saves', col: 'user_id' },
+      { table: 'likes', col: 'user_id' },
+      { table: 'comments', col: 'author_id' },
+      { table: 'post_notification_settings', col: 'user_id' },
+      { table: 'notifications', col: 'user_id' },
+      { table: 'notifications', col: 'sender_id' },
+      { table: 'posts', col: 'author_id' },
+      { table: 'folders', col: 'user_id' },
+      { table: 'follows', col: 'follower_id' },
+      { table: 'follows', col: 'following_id' },
+      { table: 'coffee_chat_requests', col: 'sender_id' },
+      { table: 'coffee_chat_requests', col: 'receiver_id' },
+      { table: 'profiles', col: 'id' },
+    ] as const;
+
+    for (const { table, col } of tables) {
+      const { error: delErr } = await supabaseAdmin
+        .from(table)
+        .delete()
+        .eq(col, uid);
+      if (delErr) {
+        console.error(`[delete-user-account] delete ${table}.${col} failed:`, delErr.message);
+        return new Response(
+          JSON.stringify({ error: delErr.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    const { error: authDelErr } = await supabaseAdmin.rpc('delete_auth_user', {
+      p_user_id: uid,
+    });
+    if (authDelErr) {
+      console.error('[delete-user-account] delete_auth_user failed:', authDelErr.message);
+      return new Response(
+        JSON.stringify({ error: authDelErr.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -61,9 +96,10 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error('[delete-user-account] unexpected error:', message);
     return new Response(
       JSON.stringify({ error: message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
