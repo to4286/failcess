@@ -23,7 +23,7 @@ const HINT_TEXT = '5MB 이하 JPEG, JPG, PNG 파일만 업로드 가능합니다
 
 const NICKNAME_MIN_LENGTH = 3;
 const NICKNAME_ONLY = /^[가-힣a-zA-Z0-9]+$/;
-const JOB_ONLY = /^[가-힣a-zA-Z\s]+$/;
+const JOB_ONLY = /^[가-힣a-zA-Z]+$/;
 
 function validateNickname(value: string): string | null {
   const t = value.trim();
@@ -83,8 +83,9 @@ export default function ProfileSetupModal({ open, onSuccess }: ProfileSetupModal
   };
 
   const handleJobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setJobTitle(e.target.value);
-    if (jobError) setJobError(null);
+    const next = e.target.value;
+    setJobTitle(next);
+    setJobError(validateJob(next));
   };
   const handleJobBlur = () => {
     setJobError(validateJob(jobTitle));

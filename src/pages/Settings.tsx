@@ -23,7 +23,7 @@ import { INTEREST_TAGS } from '@/lib/constants';
 
 const NICKNAME_MIN_LENGTH = 3;
 const NICKNAME_ONLY = /^[가-힣a-zA-Z0-9]+$/;
-const JOB_ONLY = /^[가-힣a-zA-Z\s]+$/;
+const JOB_ONLY = /^[가-힣a-zA-Z]+$/;
 
 function validateNickname(value: string): string | null {
   const t = value.trim();
@@ -320,8 +320,9 @@ export default function Settings() {
                 id="settings-job"
                 value={jobTitle}
                 onChange={(e) => {
-                  setJobTitle(e.target.value);
-                  if (jobError) setJobError(null);
+                  const next = e.target.value;
+                  setJobTitle(next);
+                  setJobError(validateJob(next));
                 }}
                 onBlur={handleJobBlur}
                 placeholder="직업"
