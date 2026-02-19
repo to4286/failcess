@@ -6,6 +6,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * OAuth/비밀번호 재설정 등 인증 리다이렉트 URL.
+ * - 현재 접속 도메인(window.location.origin)을 사용해 failcess.com에서 로그인 시 failcess.com으로 복귀.
+ * - VITE_SITE_URL이 설정되면 해당 값을 우선 사용 (프로덕션 빌드 시 고정 도메인).
+ * - Supabase 대시보드 > Authentication > URL Configuration에서 이 URL을 Redirect URLs에 추가해야 함.
+ */
+export function getAuthRedirectUrl(): string {
+  const envUrl = import.meta.env.VITE_SITE_URL;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const base = (envUrl || origin || "").replace(/\/$/, "");
+  return base ? `${base}/` : (origin ? `${origin}/` : "");
+}
+
+/**
  * ILIKE/LIKE 패턴에서 검색어를 그대로 쓰기 위해 와일드카드 이스케이프.
  * % → \%, _ → \_, \ → \\. (PostgreSQL 기본 escape는 \)
  * 검색 UI에서 쌍따옴표는 .or() 파싱 오류 방지를 위해 제거한 뒤 사용.

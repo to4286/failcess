@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, getAuthRedirectUrl } from '@/lib/utils';
 
 type View = 'initial' | 'emailSignIn' | 'emailSignUp' | 'forgotPassword';
 
@@ -227,9 +227,10 @@ export default function LoginModal({ open, onClose, initialLoginError, clearInit
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
+      const redirectTo = getAuthRedirectUrl();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: `${window.location.origin}/` },
+        options: { redirectTo },
       });
       if (error) {
         toast.error(error.message || 'Google 로그인에 실패했습니다.');
@@ -327,7 +328,7 @@ export default function LoginModal({ open, onClose, initialLoginError, clearInit
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(loginEmail.trim(), {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: getAuthRedirectUrl(),
       });
       if (error) {
         toast.error(error.message || '메일 전송에 실패했습니다.');
