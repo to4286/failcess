@@ -20,6 +20,18 @@ const AVATAR_ACCEPT = '.jpg,.jpeg,.png';
 const AVATARS_BUCKET = 'avatars';
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const HINT_TEXT = '5MB 이하 JPEG, JPG, PNG 파일만 업로드 가능합니다.';
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png'] as const;
+
+function getSafeExtension(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return ALLOWED_EXTENSIONS.includes(ext as any) ? ext : 'jpg';
+}
+
+function buildAvatarPath(userId: string, ext: string): string {
+  const safeId = String(userId).replace(/[/\\]/g, '');
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return `${safeId}/${unique}.${ext}`;
+}
 
 const NICKNAME_MIN_LENGTH = 3;
 const NICKNAME_ONLY = /^[가-힣a-zA-Z0-9]+$/;
@@ -139,11 +151,21 @@ export default function ProfileSetupModal({ open, onSuccess }: ProfileSetupModal
 
       let avatarUrl: string | null = null;
       if (avatarFile) {
-        const ext = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+        const ext = getSafeExtension(avatarFile.name);
+        const userId = String(user?.id || '').trim();
+        if (!userId) {
+          setSubmitError('사용자 정보를 확인할 수 없습니다.');
+          return;
+        }
+        const filePath = buildAvatarPath(userId, ext);
+        const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
         const { error: uploadError } = await supabase.storage
           .from(AVATARS_BUCKET)
-          .upload(filePath, avatarFile, { cacheControl: '3600', upsert: false });
+          .upload(filePath, avatarFile, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType,
+          });
 
         if (uploadError) {
           setSubmitError(uploadError.message || '프로필 사진 업로드에 실패했습니다.');

@@ -14,6 +14,20 @@ import { cn } from '@/lib/utils';
 const AVATAR_ACCEPT = '.jpg,.jpeg,.png';
 const AVATARS_BUCKET = 'avatars';
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png'] as const;
+
+/** 확장자 화이트리스트 적용, 경로에 사용할 안전한 확장자 반환 */
+function getSafeExtension(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return ALLOWED_EXTENSIONS.includes(ext as any) ? ext : 'jpg';
+}
+
+/** RLS 정책과 일치하는 업로드 경로 생성 (userId/고유파일명.확장자) */
+function buildAvatarPath(userId: string, ext: string): string {
+  const safeId = String(userId).replace(/[/\\]/g, '');
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return `${safeId}/${unique}.${ext}`;
+}
 
 const HINT_TEXT = '5MB 이하 JPEG, JPG, PNG 파일만 업로드 가능합니다.';
 
@@ -38,7 +52,7 @@ export default function ChangeAvatarModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const displayImage = preview ?? currentAvatarUrl;
+  const displayImage = removed ? null : (preview ?? currentAvatarUrl);
 
   useEffect(() => {
     if (!open) {
@@ -106,14 +120,28 @@ export default function ChangeAvatarModal({
 
       let avatarUrl: string | null = null;
       if (file) {
-        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+        const ext = getSafeExtension(file.name);
+        const userId = String(user?.id || '').trim();
+        if (!userId) {
+          setSubmitError('사용자 정보를 확인할 수 없습니다.');
+          return;
+        }
+        const filePath = buildAvatarPath(userId, ext);
+        const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
         const { error: uploadError } = await supabase.storage
           .from(AVATARS_BUCKET)
-          .upload(filePath, file, { cacheControl: '3600', upsert: false });
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType,
+          });
 
         if (uploadError) {
-          setSubmitError(uploadError.message || '프로필 사진 업로드에 실패했습니다.');
+          const msg = uploadError.message || '프로필 사진 업로드에 실패했습니다.';
+          const hint = uploadError.message?.toLowerCase().includes('bucket') || uploadError.message?.toLowerCase().includes('not found')
+            ? ' Supabase Storage에 avatars 버킷이 Public으로 설정되어 있는지 확인해주세요.'
+            : '';
+          setSubmitError(msg + hint);
           return;
         }
         const { data: urlData } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(filePath);
