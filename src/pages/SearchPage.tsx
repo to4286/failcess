@@ -271,7 +271,14 @@ const SearchPage = () => {
                 ) : (
                   <div className="space-y-6">
                     {posts.map((post) => (
-                      <StoryCard key={post.id} post={post} searchKeyword={query} />
+                      <StoryCard
+                        key={post.id}
+                        post={post}
+                        searchKeyword={query}
+                        onPostDeleted={(postId) => {
+                          setPosts((prev) => prev.filter((p) => p.id !== postId));
+                        }}
+                      />
                     ))}
                   </div>
                 )}

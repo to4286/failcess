@@ -1,13 +1,27 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { MessageCircle, Bookmark, Eye } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { MessageCircle, Bookmark, Eye, MoreVertical } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarPlaceholder } from '@/components/ui/avatar';
 import { Post } from '@/types';
-import { cn, getRelativeTime, addPostToHistory, isValidImageUrl } from '@/lib/utils';
+import { cn, getRelativeTime, addPostToHistory, isValidImageUrl, getFilteredPreviewText } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import FolderSelectModal from '@/components/FolderSelectModal';
 import { useAuthModal } from '@/hooks/useAuthModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface StoryCardProps {
   post: Post;
@@ -16,12 +30,15 @@ interface StoryCardProps {
   searchKeyword?: string; // 검색 결과 페이지에서 온 경우의 검색 키워드
   /** 폴더 상세 등에서 저장 취소/이동 시 리스트에서 해당 게시물을 즉시 제거하기 위한 콜백 */
   onSaveRemoved?: (postId: string) => void;
+  /** 게시물 삭제 완료 시 리스트에서 제거하기 위한 콜백 */
+  onPostDeleted?: (postId: string) => void;
 }
 
 const TEST_USER_ID = '55b95afa-aa07-45e7-8630-0d608b705bca';
 
-const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, searchKeyword, onSaveRemoved }: StoryCardProps) => {
+const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, searchKeyword, onSaveRemoved, onPostDeleted }: StoryCardProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { openAuthModal } = useAuthModal();
   const reactingLabel = useMemo(() => {
     const list = post.reactingFollowings;
@@ -33,6 +50,8 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
   const [likeCount, setLikeCount] = useState(post.like_count || 0);
   const [isSaved, setIsSaved] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   const isOwnPost = user?.id === post.author_id;
@@ -312,6 +331,32 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
   };
 
 
+  const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/write?edit=${post.id}`);
+  };
+
+  const handleDeleteConfirm = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (!user) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', post.id).eq('author_id', user.id);
+      if (error) throw error;
+      setShowDeleteModal(false);
+      toast.success('게시물이 삭제되었습니다.', { position: 'top-center', duration: 2000 });
+      onPostDeleted?.(post.id);
+      if (!onPostDeleted) navigate('/', { replace: true });
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      toast.error('삭제에 실패했습니다.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     // 사용자 프로필 링크나 버튼 클릭 시는 히스토리에 저장하지 않음
@@ -341,15 +386,8 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
     return url && isValidImageUrl(url) ? url : null;
   };
 
-  // HTML 태그 제거하고 텍스트만 추출
-  const extractText = (html: string): string => {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    return tempDiv.textContent || tempDiv.innerText || '';
-  };
-
   const firstImageUrl = extractFirstImage(post.content);
-  const contentText = extractText(post.content);
+  const contentText = getFilteredPreviewText(post.content);
 
   return (
     <article className="group bg-card rounded-xl border border-border p-6 shadow-card hover:shadow-card-hover transition-all duration-300 animate-fade-in flex flex-col h-full">
@@ -361,35 +399,65 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
       )}
       {/* 1. 작성자 정보 */}
       <div className="mb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Link 
             to={`/user/${post.author_id}`}
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer select-none"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer select-none min-w-0 flex-1"
             onClick={(e) => e.stopPropagation()}
           >
-            <Avatar className="h-8 w-8 select-none">
+            <Avatar className="h-8 w-8 select-none flex-shrink-0">
               {isValidImageUrl(post.author.avatar_url) ? (
                 <AvatarImage src={post.author.avatar_url!} alt={post.author.nickname} />
               ) : null}
               <AvatarPlaceholder />
             </Avatar>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-foreground text-sm select-none">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-foreground text-sm select-none truncate">
                 {post.author.nickname}
               </span>
-              <span className="text-sm text-gray-500 select-none">
+              <span className="text-sm text-gray-500 select-none flex-shrink-0">
                 {getRelativeTime(post.created_at)}
               </span>
             </div>
           </Link>
-          {post.is_public === false && (
-            <span className="flex items-center gap-1 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded flex-shrink-0">
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <span>나만 보기</span>
-            </span>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {post.is_public === false && (
+              <span className="flex items-center gap-1 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>나만 보기</span>
+              </span>
+            )}
+            {isOwnPost && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors cursor-pointer select-none"
+                    aria-label="더보기"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={handleEdit}>
+                    수정하기
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteModal(true);
+                    }}
+                    className="text-red-500 focus:text-red-500"
+                  >
+                    삭제하기
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </div>
 
@@ -513,6 +581,29 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
         onSelect={handleFolderSelect}
         postId={isSaved ? post.id : undefined}
       />
+
+      {/* 삭제 확인 모달 */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">정말 삭제하시겠습니까?</DialogTitle>
+            <p className="text-sm text-gray-500 mt-2">게시물을 삭제하면 복구가 불가합니다.</p>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+              닫기
+            </Button>
+            <Button
+              variant="destructive"
+              className="bg-red-500 text-white hover:bg-red-600"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+            >
+              {isDeleting ? '삭제 중...' : '삭제하기'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 };

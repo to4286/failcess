@@ -418,7 +418,13 @@ const UserProfile = () => {
                 !folders.some((f) => userPosts.some((p) => p.folder_id === f.id))) && (
               <div className="space-y-6">
                 {userPosts.map((post) => (
-                  <StoryCard key={post.id} post={post} />
+                  <StoryCard
+                    key={post.id}
+                    post={post}
+                    onPostDeleted={(postId) => {
+                      setUserPosts((prev) => prev.filter((p) => p.id !== postId));
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -444,7 +450,13 @@ const UserProfile = () => {
                         ? userPosts
                         : userPosts.filter((p) => p.folder_id === selectedFolder.id)
                       ).map((post) => (
-                        <StoryCard key={post.id} post={post} />
+                        <StoryCard
+                          key={post.id}
+                          post={post}
+                          onPostDeleted={(postId) => {
+                            setUserPosts((prev) => prev.filter((p) => p.id !== postId));
+                          }}
+                        />
                       ))}
                     </div>
                   </div>

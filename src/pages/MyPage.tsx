@@ -1138,6 +1138,11 @@ const MyPage = () => {
                               setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
                             }
                           }}
+                          onPostDeleted={(postId) => {
+                            setFolderPosts((prev) => prev.filter((p) => p.id !== postId));
+                            setPosts((prev) => prev.filter((p) => p.id !== postId));
+                            setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
+                          }}
                         />
                       ))}
                     </div>

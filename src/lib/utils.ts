@@ -272,6 +272,65 @@ export function removeKeywordFromHistory(keyword: string): void {
 }
 
 /**
+ * 게시물 카드 미리보기용: HTML에서 텍스트 추출 시 템플릿 질문만 제거.
+ * - 시스템 제공 질문(정확히 일치하는 줄)만 제거, 사용자 작성 헤더/내용은 보존.
+ * - 제거 후 불필요한 빈 줄 정리.
+ */
+const PREVIEW_FILTER_LINES = new Set([
+  "어떤 일이 있었나요?",
+  "(최대한 사실적으로 적어주세요)",
+  "왜 그런 일이 일어났다고 생각하시나요?",
+  "(놓친 것은 무엇인지 생각해보세요)",
+  "새롭게 깨달은 사실은 무엇인가요?",
+  "같은 실수를 반복하지 않게 무엇을 다르게 할 건가요?",
+  "이번에 맞이한 새로운 상황을 설명해주세요.",
+  "유사한 과거 상황에서 겪었던 실패와 그 원인은 무엇이었나요?",
+  "과거의 피드백을 바탕으로 이번에는 무엇을 다르게 실행했나요?",
+  "(과거 실패에서 배운 점을 포함해주세요)",
+  "그 결과, 어떤 성공적인 변화나 성과를 얻었나요?",
+]);
+
+export function getFilteredPreviewText(html: string): string {
+  if (!html || typeof html !== "string") return "";
+  if (typeof document === "undefined") {
+    return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = html;
+
+  const lines: string[] = [];
+  const blockTags = new Set(["H1", "H2", "H3", "H4", "H5", "H6", "P", "LI", "DIV", "BLOCKQUOTE"]);
+
+  function collectBlocks(node: Node): void {
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as HTMLElement;
+    if (blockTags.has(el.tagName)) {
+      const hasBlockChild = Array.from(el.children).some((c) =>
+        blockTags.has((c as HTMLElement).tagName)
+      );
+      if (hasBlockChild) {
+        for (const child of el.childNodes) collectBlocks(child);
+        return;
+      }
+      const text = (el.textContent || "").trim();
+      if (text && !PREVIEW_FILTER_LINES.has(text)) {
+        lines.push(text);
+      }
+      return;
+    }
+    for (const child of el.childNodes) collectBlocks(child);
+  }
+
+  collectBlocks(tempDiv);
+
+  return lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * 이미지 URL 유효성 검사 함수
  * null, undefined, 빈 문자열, 또는 잘못된 형식의 URL을 체크
  */

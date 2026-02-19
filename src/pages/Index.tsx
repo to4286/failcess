@@ -384,12 +384,28 @@ const Index = () => {
               <div className="space-y-6">
                 {tempPost && (
                   <div className="ring-2 ring-blue-400/60 rounded-xl bg-white/50">
-                    <StoryCard key={tempPost.id} post={tempPost} shouldSaveToHistory={false} />
+                    <StoryCard
+                      key={tempPost.id}
+                      post={tempPost}
+                      shouldSaveToHistory={false}
+                      onPostDeleted={(postId) => {
+                        setTempPost((prev) => (prev?.id === postId ? null : prev));
+                        setPosts((prev) => prev.filter((p) => p.id !== postId));
+                      }}
+                    />
                   </div>
                 )}
                 {posts.map((post) => (
-                    <StoryCard key={post.id} post={post} shouldSaveToHistory={false} />
-                  ))}
+                  <StoryCard
+                    key={post.id}
+                    post={post}
+                    shouldSaveToHistory={false}
+                    onPostDeleted={(postId) => {
+                      setTempPost((prev) => (prev?.id === postId ? null : prev));
+                      setPosts((prev) => prev.filter((p) => p.id !== postId));
+                    }}
+                  />
+                ))}
                       </div>
                       
               {/* 추가 로딩 인디케이터 (하단) */}

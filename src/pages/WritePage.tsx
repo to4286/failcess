@@ -35,6 +35,26 @@ import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthModal } from "@/hooks/useAuthModal";
 import { INTEREST_TAGS } from "@/lib/constants";
+import { getFilteredPreviewText } from "@/lib/utils";
+import TemplateSelectModal, { type TemplateType } from "@/components/TemplateSelectModal";
+
+const TEMPLATE_DIAGNOSIS_HTML = `<h2>어떤 일이 있었나요?</h2>
+<p>(최대한 사실적으로 적어주세요)</p>
+<h2>왜 그런 일이 일어났다고 생각하시나요?</h2>
+<p>(놓친 것은 무엇인지 생각해보세요)</p>
+<h2>새롭게 깨달은 사실은 무엇인가요?</h2>
+<p></p>
+<h2>같은 실수를 반복하지 않게 무엇을 다르게 할 건가요?</h2>
+<p></p>`;
+
+const TEMPLATE_VERIFICATION_HTML = `<h2>이번에 맞이한 새로운 상황을 설명해주세요.</h2>
+<p></p>
+<h2>유사한 과거 상황에서 겪었던 실패와 그 원인은 무엇이었나요?</h2>
+<p></p>
+<h2>과거의 피드백을 바탕으로 이번에는 무엇을 다르게 실행했나요?</h2>
+<p>(과거 실패에서 배운 점을 포함해주세요)</p>
+<h2>그 결과, 어떤 성공적인 변화나 성과를 얻었나요?</h2>
+<p></p>`;
 
 const WritePage = () => {
   const navigate = useNavigate();
@@ -57,6 +77,10 @@ const WritePage = () => {
   const [isLoadingEditPost, setIsLoadingEditPost] = useState(false);
   const [editPostLoaded, setEditPostLoaded] = useState(false);
   const editContentSetRef = useRef(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>("free");
+  const templateModalHandledRef = useRef(false);
+  const pendingTemplateRef = useRef<TemplateType | null>(null);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -91,6 +115,14 @@ const WritePage = () => {
       subscription.unsubscribe();
     };
   }, [navigate, openAuthModal]);
+
+  // 새 글쓰기 시 템플릿 모달 표시
+  useEffect(() => {
+    if (user && !editPostId && !templateModalHandledRef.current) {
+      templateModalHandledRef.current = true;
+      setShowTemplateModal(true);
+    }
+  }, [user, editPostId]);
 
   // 수정 모드: 게시물 데이터 불러오기 및 pre-fill
   useEffect(() => {
@@ -486,6 +518,17 @@ const WritePage = () => {
     };
   }, [editor]);
 
+  // 에디터 준비 시 대기 중인 템플릿 적용
+  useEffect(() => {
+    if (editor && pendingTemplateRef.current) {
+      const t = pendingTemplateRef.current;
+      pendingTemplateRef.current = null;
+      const html =
+        t === "diagnosis" ? TEMPLATE_DIAGNOSIS_HTML : TEMPLATE_VERIFICATION_HTML;
+      editor.commands.setContent(html);
+    }
+  }, [editor]);
+
   // 제목 textarea 높이 자동 조절 (초기 및 값 변경 시)
   useEffect(() => {
     if (titleTextareaRef.current) {
@@ -505,6 +548,26 @@ const WritePage = () => {
   const hasUnsavedChanges = () => {
     if (!editor) return false;
     return formData.title.trim() !== "" || !editor.isEmpty;
+  };
+
+  const handleTemplateConfirm = () => {
+    setShowTemplateModal(false);
+    if (selectedTemplate === "free") return;
+    const html =
+      selectedTemplate === "diagnosis"
+        ? TEMPLATE_DIAGNOSIS_HTML
+        : TEMPLATE_VERIFICATION_HTML;
+    setFormData((prev) => ({ ...prev, content: html }));
+    if (editor) {
+      editor.commands.setContent(html);
+    } else {
+      pendingTemplateRef.current = selectedTemplate;
+    }
+  };
+
+  const handleTemplateClose = () => {
+    setShowTemplateModal(false);
+    navigate("/");
   };
 
   // 확인 버튼 클릭 시 메인으로 이동
@@ -571,7 +634,8 @@ const WritePage = () => {
 
     if (!editor) return;
 
-    if (!formData.title.trim() || editor.isEmpty) {
+    const pureUserText = getFilteredPreviewText(formData.content);
+    if (!formData.title.trim() || !pureUserText.trim()) {
       alert("제목과 내용을 모두 입력해주세요.");
       return;
     }
@@ -713,6 +777,15 @@ const WritePage = () => {
   return (
     <div className="min-h-screen bg-white">
       <Header />
+
+      <TemplateSelectModal
+        open={showTemplateModal}
+        onOpenChange={setShowTemplateModal}
+        selectedTemplate={selectedTemplate}
+        onSelectTemplate={setSelectedTemplate}
+        onConfirm={handleTemplateConfirm}
+        onClose={handleTemplateClose}
+      />
 
       <main className="max-w-[700px] mx-auto px-6 sm:px-8 pt-16 relative">
         {isLoadingEditPost && (
