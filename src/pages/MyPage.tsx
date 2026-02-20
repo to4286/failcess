@@ -37,7 +37,7 @@ import { mockPosts } from '@/data/mockData';
 import { Post, Folder as FolderType, CoffeeChatRequestReceived } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getRelativeTime } from '@/lib/utils';
+import { getRelativeTime, isValidImageUrl } from '@/lib/utils';
 
 const TEST_USER_ID = '55b95afa-aa07-45e7-8630-0d608b705bca';
 
@@ -1014,9 +1014,9 @@ const MyPage = () => {
                   aria-label="프로필 사진 변경"
                 >
                   <Avatar className="h-24 w-24 rounded-full object-cover">
-                    {profile?.avatar_url ? (
+                    {isValidImageUrl(profile?.avatar_url) ? (
                       <AvatarImage
-                        src={profile.avatar_url}
+                        src={profile!.avatar_url as string}
                         alt={profile?.nickname ?? user?.user_metadata?.nickname ?? '프로필'}
                         className="object-cover"
                       />
@@ -1393,9 +1393,9 @@ const MyPage = () => {
                     <div className="flex items-start gap-4">
                       <Link to={`/user/${request.requester_id}`}>
                         <Avatar className="h-10 w-10">
-                          {request.requester?.avatar_url ? (
+                          {isValidImageUrl(request.requester?.avatar_url) ? (
                             <AvatarImage
-                              src={request.requester.avatar_url}
+                              src={request.requester!.avatar_url!}
                               alt={request.requester.nickname ?? ''}
                             />
                           ) : null}

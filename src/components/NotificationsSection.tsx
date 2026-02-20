@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getRelativeTime } from '@/lib/utils';
+import { getRelativeTime, isValidImageUrl } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarPlaceholder } from '@/components/ui/avatar';
 import { Bell, X } from 'lucide-react';
 import {
@@ -62,8 +62,8 @@ const NotificationItemRow = ({
     >
       <div className="relative shrink-0">
         <Avatar className="h-7 w-7 rounded-full">
-          {n.sender?.avatar_url ? (
-            <AvatarImage src={n.sender.avatar_url} alt={n.sender.nickname} className="object-cover" />
+          {isValidImageUrl(n.sender?.avatar_url) ? (
+            <AvatarImage src={n.sender!.avatar_url!} alt={n.sender.nickname} className="object-cover" />
           ) : null}
           <AvatarPlaceholder />
         </Avatar>

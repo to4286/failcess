@@ -173,6 +173,8 @@ export default function ProfileSetupModal({ open, onSuccess }: ProfileSetupModal
         }
         const { data: urlData } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(filePath);
         avatarUrl = urlData.publicUrl;
+        // CDN 전파 지연 시 404 방지: 캐시버스팅
+        if (avatarUrl) avatarUrl += (avatarUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
       }
 
       const { error: upsertError } = await supabase
@@ -195,6 +197,8 @@ export default function ProfileSetupModal({ open, onSuccess }: ProfileSetupModal
       }
       window.dispatchEvent(new CustomEvent('profileUpdated'));
       onSuccess();
+      // Supabase Storage CDN 전파 대기 (즉시 reload 시 404 방지)
+      await new Promise((r) => setTimeout(r, 2000));
       window.location.reload();
     } catch (err: any) {
       setSubmitError(err?.message || '오류가 발생했습니다.');

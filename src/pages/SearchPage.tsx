@@ -5,7 +5,7 @@ import StoryCard from '@/components/StoryCard';
 import { Avatar, AvatarImage, AvatarPlaceholder } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { sanitizeSearchTerm } from '@/lib/utils';
+import { sanitizeSearchTerm, isValidImageUrl } from '@/lib/utils';
 import { Post } from '@/types';
 
 interface SearchUser {
@@ -298,8 +298,8 @@ const SearchPage = () => {
                         className="flex items-start gap-5 p-6 border rounded-xl shadow-sm bg-white hover:shadow-md transition-shadow"
                       >
                         <Avatar className="w-20 h-20 rounded-full flex-shrink-0">
-                          {user.avatar_url ? (
-                            <AvatarImage src={user.avatar_url} alt={user.nickname} className="object-cover" />
+                          {isValidImageUrl(user.avatar_url) ? (
+                            <AvatarImage src={user.avatar_url!} alt={user.nickname} className="object-cover" />
                           ) : null}
                           <AvatarPlaceholder />
                         </Avatar>

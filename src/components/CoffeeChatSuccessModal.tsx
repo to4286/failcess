@@ -2,6 +2,7 @@ import { Avatar, AvatarImage, AvatarPlaceholder } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isValidImageUrl } from '@/lib/utils';
 import type { CoffeeChatRequestAccepted } from '@/types';
 
 interface CoffeeChatSuccessModalProps {
@@ -82,8 +83,8 @@ const CoffeeChatSuccessModal = ({ isOpen, onClose, request, onConfirmed }: Coffe
 
         <div className="mb-6 flex flex-col items-center gap-3">
           <Avatar className="h-16 w-16">
-            {receiver?.avatar_url ? (
-              <AvatarImage src={receiver.avatar_url} alt={nickname} />
+            {isValidImageUrl(receiver?.avatar_url) ? (
+              <AvatarImage src={receiver!.avatar_url!} alt={nickname} />
             ) : null}
             <AvatarPlaceholder />
           </Avatar>

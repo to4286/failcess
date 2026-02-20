@@ -911,8 +911,8 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 select-none">
                     <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-transparent hover:ring-accent transition-all">
-                      {headerAvatarUrl ? (
-                        <AvatarImage src={headerAvatarUrl} alt={user.user_metadata?.nickname || user.email} />
+                      {isValidImageUrl(headerAvatarUrl) ? (
+                        <AvatarImage src={headerAvatarUrl!} alt={user.user_metadata?.nickname || user.email} />
                       ) : null}
                       <AvatarPlaceholder />
                     </Avatar>

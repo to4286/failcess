@@ -21,7 +21,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Post } from '@/types';
 import CommentSection from '@/components/CommentSection';
-import { getRelativeTime, cn } from '@/lib/utils';
+import { getRelativeTime, cn, isValidImageUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useFollowStatus } from '@/hooks/useFollowStatus';
 import { addPostToHistory, removeKeywordFromHistory } from '@/lib/utils';
@@ -550,8 +550,8 @@ const PostDetail = () => {
                 className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
               >
                 <Avatar className="h-8 w-8 shrink-0">
-                  {post.author.avatar_url ? (
-                    <AvatarImage src={post.author.avatar_url} alt={post.author.nickname} />
+                  {isValidImageUrl(post.author.avatar_url) ? (
+                    <AvatarImage src={post.author.avatar_url!} alt={post.author.nickname} />
                   ) : null}
                   <AvatarPlaceholder />
                 </Avatar>
@@ -676,8 +676,8 @@ const PostDetail = () => {
               className="flex items-start flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
             >
               <Avatar className="h-24 w-24 shrink-0 rounded-full object-cover">
-                {post.author.avatar_url ? (
-                  <AvatarImage src={post.author.avatar_url} alt={post.author.nickname} className="object-cover" />
+                {isValidImageUrl(post.author.avatar_url) ? (
+                  <AvatarImage src={post.author.avatar_url!} alt={post.author.nickname} className="object-cover" />
                 ) : null}
                 <AvatarPlaceholder />
               </Avatar>

@@ -366,6 +366,12 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
   if (url.includes('/null') || url.includes('/undefined')) {
     return false;
   }
+
+  // 잘못된 상대 경로: 앱 도메인에서 404 유발 (예: /image → failcess.com/image)
+  const trimmed = url.trim();
+  if (trimmed === '/image' || trimmed.startsWith('/image?') || trimmed.startsWith('/image/')) {
+    return false;
+  }
   
   // 기본적인 URL 형식 검증 (http:// 또는 https://로 시작하거나 /로 시작하는 상대 경로)
   try {

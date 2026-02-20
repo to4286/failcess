@@ -21,6 +21,7 @@ import { useFollowStatus } from '@/hooks/useFollowStatus';
 import { toast } from 'sonner';
 import { Post, Folder as FolderType } from '@/types';
 import UserListModal from '@/components/UserListModal';
+import { isValidImageUrl } from '@/lib/utils';
 
 type PostWithFolderId = Post & { folder_id?: string | null };
 type SelectedFolderForView = FolderType | { id: 'all'; name: string };
@@ -314,8 +315,8 @@ const UserProfile = () => {
           <div className="bg-white border border-gray-200 rounded-2xl p-8 mb-8 animate-fade-in">
             <div className="flex flex-row items-start gap-6">
               <Avatar className="h-24 w-24 rounded-full object-cover shrink-0">
-                {user.avatar_url ? (
-                  <AvatarImage src={user.avatar_url} alt={user.nickname} className="object-cover" />
+                {isValidImageUrl(user.avatar_url) ? (
+                  <AvatarImage src={user.avatar_url!} alt={user.nickname} className="object-cover" />
                 ) : null}
                 <AvatarPlaceholder />
               </Avatar>
