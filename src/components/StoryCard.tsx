@@ -461,8 +461,8 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
         </div>
       </div>
 
-      {/* 2. 본문 영역 Wrapper (제목, 내용, 사진) */}
-      <div className="flex flex-row justify-between items-start flex-1 gap-5">
+      {/* 2. 본문 영역 Wrapper (제목, 내용, 사진) - gap-6으로 텍스트와 썸네일 간격 유지 */}
+      <div className="flex flex-row justify-between items-start flex-1 gap-6">
         {/* 왼쪽: 텍스트 영역 */}
         <div className="flex-1 min-w-0 flex flex-col pt-2">
           {/* 제목 */}
@@ -490,28 +490,25 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
           </Link>
         </div>
 
-        {/* 오른쪽: 사진 영역 */}
+        {/* 오른쪽: 사진 영역 (flex-shrink-0으로 텍스트에 눌리지 않음) */}
         {firstImageUrl && isValidImageUrl(firstImageUrl) && (
           <Link 
             to={`/post/${post.id}`}
             state={{ fromMainPage: isFromMainPage, searchKeyword: searchKeyword }}
-            className="flex-shrink-0 sm:block hidden cursor-pointer select-none"
+            className="flex-shrink-0 sm:block hidden cursor-pointer select-none w-48 h-48 overflow-hidden rounded-xl border border-gray-100"
             onClick={handleCardClick}
           >
             <img
               src={firstImageUrl}
               alt={post.title}
-              className="w-36 aspect-square object-cover rounded-xl border border-gray-100 select-none"
+              className="w-full h-full object-cover select-none"
               onError={(e) => {
-                // 이미지 로드 실패 시 에러 방지 및 숨김 처리
                 e.preventDefault();
                 e.stopPropagation();
                 e.currentTarget.style.display = 'none';
-                // 콘솔 에러 방지
                 console.debug('[StoryCard] 이미지 로드 실패 (의도적으로 무시됨):', firstImageUrl);
               }}
               onLoad={(e) => {
-                // 이미지 로드 성공 시 표시
                 e.currentTarget.style.display = '';
               }}
             />
