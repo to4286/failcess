@@ -350,13 +350,11 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container py-8">
-        <div className="flex gap-8">
-          {/* 좌측 여백 */}
-          <div className="hidden lg:block flex-1"></div>
-          
-          {/* 게시물 리스트 - 정중앙 배치 (크기 유지) */}
-          <div className="max-w-2xl flex-shrink-0">
+      <main className="mt-4 py-8">
+        <div className="container flex lg:justify-end">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-[40px] flex-shrink-0">
+          {/* 메인 게시물 리스트 - 고정 너비 (모바일: full, 데스크톱: 700px) */}
+          <div className="w-full lg:w-[700px] flex-shrink-0">
             {/* 초기 로딩 상태 */}
             {isLoading && (
               <div className="flex justify-center items-center py-20">
@@ -424,13 +422,14 @@ const Index = () => {
           )}
         </div>
 
-          {/* 사이드바 영역 - 오른쪽 여백에 배치 (데스크탑에서만 표시) */}
-          <aside className="hidden lg:block flex-shrink-0 w-[320px]">
-            <div className="sticky top-20 flex flex-col gap-6">
-              <PopularPosts />
-              <NotificationsSection />
-            </div>
-          </aside>
+        {/* 인기 게시물 사이드바 - 고정 너비 */}
+        <aside className="hidden lg:block flex-shrink-0 w-[300px]">
+          <div className="sticky top-16 flex flex-col gap-6">
+            <PopularPosts />
+            <NotificationsSection />
+          </div>
+        </aside>
+        </div>
         </div>
       </main>
 
