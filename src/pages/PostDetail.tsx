@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Share2, Bookmark, MoreVertical } from 'lucide-react';
-import DOMPurify from 'dompurify';
 import Header from '@/components/Header';
 import { Avatar, AvatarImage, AvatarPlaceholder } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Post } from '@/types';
 import CommentSection from '@/components/CommentSection';
-import { getRelativeTime, cn, isValidImageUrl } from '@/lib/utils';
+import { getRelativeTime, cn, isValidImageUrl, sanitizePostContent } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useFollowStatus } from '@/hooks/useFollowStatus';
 import { addPostToHistory, removeKeywordFromHistory } from '@/lib/utils';
@@ -611,7 +610,7 @@ const PostDetail = () => {
           <div className="mt-8">
             <div 
               className="prose prose-lg max-w-none prose-headings:font-bold prose-img:rounded-lg prose-img:shadow-md prose-img:my-6 prose-p:text-lg prose-p:leading-relaxed prose-p:text-gray-900 prose-ul:list-disc prose-ul:ml-6 prose-ol:list-decimal prose-ol:ml-6 prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-gray-700 prose-blockquote:bg-gray-50 prose-blockquote:rounded-r break-all whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }} 
+              dangerouslySetInnerHTML={{ __html: sanitizePostContent(post.content) }} 
             />
             </div>
 

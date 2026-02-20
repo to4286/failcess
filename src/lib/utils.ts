@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import DOMPurify from "dompurify";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -393,4 +394,22 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+let _postContentHookAdded = false;
+/** 게시물 본문 HTML sanitize — img src 중 잘못된 URL(/image 등) 제거하여 404 방지 */
+export function sanitizePostContent(html: string): string {
+  if (typeof window === "undefined") return html;
+  if (!_postContentHookAdded) {
+    DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+      if (node.tagName === "IMG" && node.hasAttribute("src")) {
+        const src = node.getAttribute("src");
+        if (!src || !isValidImageUrl(src)) {
+          node.removeAttribute("src");
+        }
+      }
+    });
+    _postContentHookAdded = true;
+  }
+  return DOMPurify.sanitize(html);
 }
