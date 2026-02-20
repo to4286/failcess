@@ -373,8 +373,8 @@ const Index = () => {
 
             {/* 빈 상태 */}
             {!isLoading && !error && !tempPost && posts.length === 0 && (
-              <div className="w-full flex justify-center items-center py-20">
-                <p className="text-muted-foreground text-center">아직 글이 없습니다.</p>
+              <div className="flex justify-center items-center py-20">
+                <p className="text-muted-foreground">아직 글이 없습니다.</p>
               </div>
             )}
 
@@ -423,9 +423,6 @@ const Index = () => {
             </>
           )}
         </div>
-
-          {/* 우측 여백 - 콘텐츠 정중앙 배치용 */}
-          <div className="hidden lg:block flex-1"></div>
 
           {/* 사이드바 영역 - 오른쪽 여백에 배치 (데스크탑에서만 표시) */}
           <aside className="hidden lg:block flex-shrink-0 w-[320px]">
