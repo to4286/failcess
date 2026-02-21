@@ -187,3 +187,47 @@
     box-shadow: var(--shadow-lg);
   }
 }
+
+/* prose 내 마크다운 제목 크기 (typography 플러그인 modifier 미적용 시 대체) */
+.prose h1 {
+  font-size: 2.25rem; /* text-4xl = 36px */
+  font-weight: 700;
+  color: rgb(17 24 39);
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-family: 'Playfair Display', Georgia, serif;
+}
+.prose h2 {
+  font-size: 1.875rem; /* text-3xl = 30px, h1의 85% */
+  font-weight: 700;
+  color: rgb(17 24 39);
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-family: 'Playfair Display', Georgia, serif;
+}
+.prose h3 {
+  font-size: 1.5rem; /* text-2xl = 24px, h1의 70% */
+  font-weight: 700;
+  color: rgb(17 24 39);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-family: 'Playfair Display', Georgia, serif;
+}
+.prose h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+.prose h5 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.prose h6 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}

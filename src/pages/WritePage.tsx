@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import HardBreak from "@tiptap/extension-hard-break";
+import Heading from "@tiptap/extension-heading";
+import { textblockTypeInputRule } from "@tiptap/core";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +71,7 @@ const WritePage = () => {
   const [folders, setFolders] = useState<Array<{ id: string; name: string }>>([]);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
   const [user, setUser] = useState<any>(null);
   const [isPublishSettingsOpen, setIsPublishSettingsOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -254,16 +256,21 @@ const WritePage = () => {
   // Tiptap 에디터 설정
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        hardBreak: false, // Enter → <br>로 처리하기 위해 기본 HardBreak 비활성화
-      }),
-      HardBreak.extend({
-        addKeyboardShortcuts() {
-          return {
-            Enter: () => this.editor.commands.setHardBreak(),
-          };
+      StarterKit.configure({ heading: false }),
+      Heading.extend({
+        addInputRules() {
+          const levels = this.options.levels as number[];
+          return [...levels]
+            .reverse()
+            .map((level) =>
+              textblockTypeInputRule({
+                find: new RegExp(`^(#{${Math.min(...levels)},${level}})\\s$`),
+                type: this.type,
+                getAttributes: (match) => ({ level: match[1].length }),
+              })
+            );
         },
-      }),
+      }).configure({ levels: [1, 2, 3, 4, 5, 6] }),
       Image.configure({
         inline: true,
         allowBase64: false,
@@ -274,6 +281,40 @@ const WritePage = () => {
     ],
     content: formData.content,
     editorProps: {
+      handleKeyDown: (view, event) => {
+        if (event.key !== "Enter" || event.shiftKey) return false;
+        const ed = editorRef.current;
+        if (!ed) return false;
+        const { state } = view;
+        const { $from } = state.selection;
+        const isEmpty = $from.parent.textContent.trim() === "";
+        const findAncestor = (types: string[]) => {
+          for (let d = 2; d <= $from.depth; d++) {
+            if (types.includes($from.node(-d).type.name)) return true;
+          }
+          return false;
+        };
+        if (!isEmpty || !findAncestor(["listItem"])) return false;
+        const listNode = $from.node(-3);
+        const listType = listNode?.type?.name;
+        if (listType !== "bulletList" && listType !== "orderedList") return false;
+        let ok = ed.commands.liftListItem("listItem");
+        if (!ok) ok = ed.commands.toggleList(listType, "listItem");
+        if (!ok) {
+          try {
+            const from = $from.before(-2);
+            const to = $from.after(-2);
+            ok = ed.commands.insertContentAt({ from, to }, "<p></p>", { updateSelection: true });
+          } catch {
+            /* noop */
+          }
+        }
+        if (ok) {
+          event.preventDefault();
+          return true;
+        }
+        return false;
+      },
       attributes: {
         class: `outline-none focus:outline-none ${PROSE_CONTENT_CLASS} [&_.is-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-empty:first-child::before]:text-gray-400 [&_.is-empty:first-child::before]:float-left [&_.is-empty:first-child::before]:pointer-events-none [&_.is-empty:first-child::before]:h-0`,
       },
@@ -523,6 +564,8 @@ const WritePage = () => {
       });
     },
   });
+
+  editorRef.current = editor;
 
   // 수정 모드: 에디터에 불러온 본문 주입 (1회)
   useEffect(() => {
