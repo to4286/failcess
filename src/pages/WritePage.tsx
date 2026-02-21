@@ -267,7 +267,7 @@ const WritePage = () => {
     content: formData.content,
     editorProps: {
       attributes: {
-        class: "outline-none font-serif text-[21px] leading-[1.6] text-gray-900 focus:outline-none break-all whitespace-pre-wrap [&_p]:mb-2 [&_h1]:text-[42px] [&_h1]:font-bold [&_h1]:font-serif [&_h1]:leading-tight [&_h1]:mb-4 [&_h2]:text-3xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:py-1 [&_blockquote]:my-4 [&_blockquote]:italic [&_blockquote]:text-gray-700 [&_blockquote]:bg-gray-50 [&_blockquote]:rounded-r [&_ul]:list-disc [&_ul]:list-outside [&_ul]:ml-6 [&_ul]:my-2 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:list-outside [&_ol]:ml-6 [&_ol]:my-2 [&_ol]:space-y-1 [&_img]:rounded-lg [&_img]:shadow-sm [&_img]:my-6 [&_img]:max-w-full",
+        class: "outline-none focus:outline-none prose prose-lg max-w-none prose-headings:font-bold prose-img:rounded-lg prose-img:shadow-md prose-img:my-6 prose-p:text-lg prose-p:leading-relaxed prose-p:text-gray-900 prose-ul:list-disc prose-ul:ml-6 prose-ol:list-decimal prose-ol:ml-6 prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-gray-700 prose-blockquote:bg-gray-50 prose-blockquote:rounded-r break-all whitespace-pre-wrap [&_.is-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-empty:first-child::before]:text-gray-400 [&_.is-empty:first-child::before]:float-left [&_.is-empty:first-child::before]:pointer-events-none [&_.is-empty:first-child::before]:h-0",
       },
       handleDrop: (view, event, slice, moved) => {
         // moved가 true면 이미 에디터 내부에서 이동한 것이므로 처리하지 않음
@@ -497,6 +497,22 @@ const WritePage = () => {
       // 에디터 내용이 변경될 때마다 HTML을 content에 저장
       const html = editor.getHTML();
       setFormData(prev => ({ ...prev, content: html }));
+
+      // 커서가 화면 하단에 머물지 않도록, 중앙(50%) 지점 도달 시 자동 스크롤
+      requestAnimationFrame(() => {
+        try {
+          const { view } = editor;
+          const pos = view.state.selection.anchor;
+          const coords = view.coordsAtPos(pos);
+          const centerY = window.innerHeight * 0.5;
+          if (coords.bottom >= centerY) {
+            const scrollDelta = coords.bottom - centerY;
+            window.scrollTo({ top: window.scrollY + scrollDelta, behavior: "smooth" });
+          }
+        } catch {
+          /* 무시 */
+        }
+      });
     },
   });
 
@@ -508,6 +524,31 @@ const WritePage = () => {
     editor.commands.setContent(html);
     editContentSetRef.current = true;
   }, [editor, editPostId, editPostLoaded, formData.content]);
+
+  // 커서 위치 변경 시(클릭, 화살표 등)에도 하단 고정 방지
+  useEffect(() => {
+    if (!editor) return;
+    const scrollCursorToCenter = () => {
+      requestAnimationFrame(() => {
+        try {
+          const { view } = editor;
+          const pos = view.state.selection.anchor;
+          const coords = view.coordsAtPos(pos);
+          const centerY = window.innerHeight * 0.5;
+          if (coords.bottom >= centerY) {
+            const scrollDelta = coords.bottom - centerY;
+            window.scrollTo({ top: window.scrollY + scrollDelta, behavior: "smooth" });
+          }
+        } catch {
+          /* 무시 */
+        }
+      });
+    };
+    editor.on("selectionUpdate", scrollCursorToCenter);
+    return () => {
+      editor.off("selectionUpdate", scrollCursorToCenter);
+    };
+  }, [editor]);
 
   // 에디터가 언마운트될 때 정리
   useEffect(() => {
@@ -626,7 +667,7 @@ const WritePage = () => {
   // 상단 "발행하기" 버튼 클릭 시: 실제 저장 대신 발행 설정 모달 오픈
   const handlePublish = (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!user) {
       openAuthModal();
       return;
@@ -656,7 +697,7 @@ const WritePage = () => {
     }
 
     setIsSubmitting(true);
-
+    
     try {
       const postPayload: any = {
         title: formData.title,
@@ -770,12 +811,12 @@ const WritePage = () => {
         duration: 2000,
       });
     } finally {
-      setIsSubmitting(false);
+    setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       <Header />
 
       <TemplateSelectModal
@@ -787,14 +828,15 @@ const WritePage = () => {
         onClose={handleTemplateClose}
       />
 
-      <main className="max-w-[700px] mx-auto px-6 sm:px-8 pt-16 relative">
+      <main className="max-w-4xl mx-auto my-12 relative">
         {isLoadingEditPost && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 z-10">
             <p className="text-muted-foreground">게시물을 불러오는 중...</p>
           </div>
         )}
+        <article className="bg-white rounded-xl shadow-sm border border-gray-100 p-12">
         <form id="write-form" onSubmit={handlePublish} className="space-y-8">
-          {/* 제목 - Medium 스타일 */}
+          {/* 제목 - PostDetail과 동일 (text-4xl) */}
           <div>
             <textarea
               ref={titleTextareaRef}
@@ -813,7 +855,7 @@ const WritePage = () => {
                   editor?.commands.focus();
                 }
               }}
-              className="w-full resize-none overflow-hidden text-[42px] font-bold font-serif leading-tight text-gray-900 bg-transparent outline-none focus:outline-none placeholder:text-gray-400 break-words"
+              className="w-full resize-none overflow-hidden text-4xl font-bold text-gray-900 bg-transparent outline-none focus:outline-none placeholder:text-gray-400 break-words font-sans"
               rows={1}
             />
           </div>
@@ -831,7 +873,7 @@ const WritePage = () => {
             }}
           >
             {editor ? (
-              <div className="min-h-screen [&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:font-serif [&_.ProseMirror]:text-[21px] [&_.ProseMirror]:leading-[1.6] [&_.ProseMirror]:text-gray-900 [&_.ProseMirror]:break-all [&_.ProseMirror]:whitespace-pre-wrap [&_.ProseMirror_p]:mb-2 [&_.ProseMirror_h1]:text-[42px] [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:font-serif [&_.ProseMirror_h1]:leading-tight [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-3xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h3]:text-2xl [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-gray-300 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:py-1 [&_.ProseMirror_blockquote]:my-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-gray-700 [&_.ProseMirror_blockquote]:bg-gray-50 [&_.ProseMirror_blockquote]:rounded-r [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:list-outside [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ul]:space-y-1 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:list-outside [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:my-2 [&_.ProseMirror_ol]:space-y-1 [&_.ProseMirror_img]:rounded-lg [&_.ProseMirror_img]:shadow-sm [&_.ProseMirror_img]:my-6 [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_strong]:font-bold [&_.ProseMirror_em]:italic [&_.ProseMirror_.is-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_.is-empty:first-child::before]:text-gray-400 [&_.ProseMirror_.is-empty:first-child::before]:float-left [&_.ProseMirror_.is-empty:first-child::before]:pointer-events-none [&_.ProseMirror_.is-empty:first-child::before]:h-0">
+              <div className="min-h-screen pb-[50vh] [&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none">
                 <EditorContent editor={editor} />
               </div>
             ) : (
@@ -846,6 +888,7 @@ const WritePage = () => {
             )}
           </div>
         </form>
+        </article>
 
         {/* 발행 설정 모달 */}
         <Dialog open={isPublishSettingsOpen} onOpenChange={setIsPublishSettingsOpen}>
@@ -993,17 +1036,17 @@ const WritePage = () => {
                   })}
                 </div>
               </section>
-            </div>
+              </div>
 
             <DialogFooter className="mt-2">
-              <Button
-                type="button"
-                variant="outline"
+                <Button
+                  type="button"
+                  variant="outline"
                 onClick={() => setIsPublishSettingsOpen(false)}
                 disabled={isSubmitting}
-              >
+                >
                 취소
-              </Button>
+                </Button>
               <Button
                 type="button"
                 onClick={handleConfirmPublish}
@@ -1011,7 +1054,7 @@ const WritePage = () => {
                 className="bg-gray-900 hover:bg-gray-800 text-white"
               >
                 {isSubmitting ? (editPostId ? "수정 중..." : "발행 중...") : (editPostId ? "수정하기" : "발행하기")}
-              </Button>
+                </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
