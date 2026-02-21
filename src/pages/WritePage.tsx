@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import HardBreak from "@tiptap/extension-hard-break";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +35,7 @@ import {
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthModal } from "@/hooks/useAuthModal";
-import { INTEREST_TAGS } from "@/lib/constants";
+import { INTEREST_TAGS, PROSE_CONTENT_CLASS } from "@/lib/constants";
 import { getFilteredPreviewText } from "@/lib/utils";
 import TemplateSelectModal, { type TemplateType } from "@/components/TemplateSelectModal";
 
@@ -254,7 +255,14 @@ const WritePage = () => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Markdown shortcuts는 StarterKit에 기본 포함
+        hardBreak: false, // Enter → <br>로 처리하기 위해 기본 HardBreak 비활성화
+      }),
+      HardBreak.extend({
+        addKeyboardShortcuts() {
+          return {
+            Enter: () => this.editor.commands.setHardBreak(),
+          };
+        },
       }),
       Image.configure({
         inline: true,
@@ -267,7 +275,7 @@ const WritePage = () => {
     content: formData.content,
     editorProps: {
       attributes: {
-        class: "outline-none focus:outline-none prose prose-lg max-w-none prose-headings:font-bold prose-img:rounded-lg prose-img:shadow-md prose-img:my-6 prose-p:text-lg prose-p:leading-relaxed prose-p:text-gray-900 prose-ul:list-disc prose-ul:ml-6 prose-ol:list-decimal prose-ol:ml-6 prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-gray-700 prose-blockquote:bg-gray-50 prose-blockquote:rounded-r break-all whitespace-pre-wrap [&_.is-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-empty:first-child::before]:text-gray-400 [&_.is-empty:first-child::before]:float-left [&_.is-empty:first-child::before]:pointer-events-none [&_.is-empty:first-child::before]:h-0",
+        class: `outline-none focus:outline-none ${PROSE_CONTENT_CLASS} [&_.is-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-empty:first-child::before]:text-gray-400 [&_.is-empty:first-child::before]:float-left [&_.is-empty:first-child::before]:pointer-events-none [&_.is-empty:first-child::before]:h-0`,
       },
       handleDrop: (view, event, slice, moved) => {
         // moved가 true면 이미 에디터 내부에서 이동한 것이므로 처리하지 않음
