@@ -2,7 +2,7 @@
  * - 제목: 상세 페이지 메인 제목(text-4xl) 기준, h2 85%, h3 70% 크기
  * - 제목 폰트: font-heading(Playfair Display) - index.css에서 h1~h6에 적용됨 */
 export const PROSE_CONTENT_CLASS =
-  "prose prose-lg max-w-none prose-img:rounded-lg prose-img:shadow-md prose-img:my-6 prose-p:text-lg prose-p:leading-[1.6] prose-p:mt-0 prose-p:mb-0 prose-p:text-gray-900 prose-ul:list-disc prose-ul:ml-6 prose-ol:list-decimal prose-ol:ml-6 prose-li:my-0.5 prose-li:leading-[1.6] prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-gray-700 prose-blockquote:bg-gray-50 prose-blockquote:rounded-r break-all whitespace-pre-wrap";
+  "prose prose-lg max-w-none prose-img:rounded-lg prose-img:shadow-md prose-img:my-6 prose-p:text-lg prose-p:leading-[1.6] prose-p:mt-0 prose-p:mb-1 prose-p:text-gray-900 [&_p:empty]:min-h-[1em] prose-ul:list-disc prose-ul:ml-6 prose-ol:list-decimal prose-ol:ml-6 prose-li:my-0.5 prose-li:leading-[1.6] prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-gray-700 prose-blockquote:bg-gray-50 prose-blockquote:rounded-r break-all whitespace-pre-wrap";
 
 /** 관심사 태그 목록 (프로필 작성 모달, 설정 페이지 공통) */
 export const INTEREST_TAGS = [
