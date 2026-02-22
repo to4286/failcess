@@ -1123,20 +1123,31 @@ const MyPage = () => {
                           key={`folder-${selectedFolder.id}-post-${post.id}`}
                           post={post}
                           hideSaveButton={false}
-                          onSaveRemoved={(postId) => {
-                            setFolderPosts((prev) => prev.filter((p) => p.id !== postId));
+                          onSaveRemoved={(postId, movedToFolderId) => {
                             const fid = selectedFolder?.id;
-                            if (fid && fid !== 'recent' && fid !== -1) {
+                            const isCustomFolder = fid && fid !== 'recent' && fid !== '-1' && fid !== '-2';
+                            if (!movedToFolderId) {
+                              setFolderPosts((prev) => prev.filter((p) => p.id !== postId));
+                              setPosts((prev) => prev.filter((p) => p.id !== postId));
+                              setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
+                            } else {
+                              if (isCustomFolder) {
+                                setFolderPosts((prev) => prev.filter((p) => p.id !== postId));
+                              }
+                            }
+                            if (isCustomFolder) {
                               const fidStr = String(fid);
                               setFolderSavesCount((prev) => ({
                                 ...prev,
                                 [fidStr]: Math.max(0, (prev[fidStr] ?? 0) - 1),
                               }));
                             }
-                            if (selectedFolder && (selectedFolder.id === 'recent' || selectedFolder.id === -1)) {
-                              setPosts((prev) => prev.filter((p) => p.id !== postId));
-                              setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
-                            }
+                          }}
+                          onSaveMoved={(postId, toFolderId) => {
+                            setFolderSavesCount((prev) => ({
+                              ...prev,
+                              [toFolderId]: (prev[toFolderId] ?? 0) + 1,
+                            }));
                           }}
                           onPostDeleted={(postId) => {
                             setFolderPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -1308,16 +1319,16 @@ const MyPage = () => {
                                       {folder.name}
                                     </h3>
                                     {(() => {
-                                      // 커스텀 폴더의 게시물 개수 계산
-                                      // posts에서 folder_id로 필터링 + saves에서 folder_id로 필터링
-                                      const postsInFolder = myPostsWithFolderId.filter(
-                                        (post) => post.folder_id === folder.id
-                                      ).length;
                                       const savesCount = folderSavesCount[folder.id] || 0;
-                                      const totalCount = postsInFolder + savesCount;
-                                      return totalCount > 0 ? (
+                                      // 저장한 게시물 탭: saves 개수만 표시 (posts 무시)
+                                      // 전체 목록 탭: 작성글 + 저장글 합산
+                                      const displayCount =
+                                        viewMode === 'saved'
+                                          ? savesCount
+                                          : myPostsWithFolderId.filter((p) => p.folder_id === folder.id).length + savesCount;
+                                      return displayCount > 0 ? (
                                         <span className="text-sm text-muted-foreground font-normal flex-shrink-0">
-                                          {totalCount}
+                                          {displayCount}
                                         </span>
                                       ) : null;
                                     })()}

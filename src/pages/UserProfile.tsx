@@ -23,7 +23,7 @@ import { Post, Folder as FolderType } from '@/types';
 import UserListModal from '@/components/UserListModal';
 import { isValidImageUrl } from '@/lib/utils';
 
-type PostWithFolderId = Post & { folder_id?: string | null };
+type PostWithFolderId = Post & { folder_id?: string | null; saved_at?: string | null };
 type SelectedFolderForView = FolderType | { id: 'all'; name: string };
 
 const UserProfile = () => {
@@ -40,6 +40,7 @@ const UserProfile = () => {
   } | null>(null);
   const [userPosts, setUserPosts] = useState<PostWithFolderId[]>([]);
   const [folders, setFolders] = useState<FolderType[]>([]);
+  const [folderTotalCounts, setFolderTotalCounts] = useState<Record<string, number>>({});
   const [selectedFolder, setSelectedFolder] = useState<SelectedFolderForView | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -134,7 +135,6 @@ const UserProfile = () => {
         view_count: item.view_count || 0,
         created_at: item.created_at,
         is_public: item.is_public ?? true,
-        folder_id: item.folder_id ?? null,
       };
     };
 
@@ -152,6 +152,7 @@ const UserProfile = () => {
           setProfile(null);
           setUserPosts([]);
           setFolders([]);
+          setFolderTotalCounts({});
           setLoading(false);
           return;
         }
@@ -178,13 +179,60 @@ const UserProfile = () => {
         const { data: postsData, error: postsError } = await postsQuery;
 
         if (cancelled) return;
-        if (!postsError && postsData) {
-          setUserPosts(postsData.map(mapPostData));
-        } else {
-          setUserPosts([]);
-        }
+        const writtenPosts: PostWithFolderId[] = !postsError && postsData
+          ? postsData.map((item: any) => ({ ...mapPostData(item), folder_id: item.folder_id ?? null } as PostWithFolderId))
+          : [];
 
-        // 해당 유저가 생성한 폴더 목록 조회: RPC 우선, 실패 시 테이블 직접 조회 fallback
+        // 1. 폴더별 전체 개수 (posts + saves) - 로딩 시점에 먼저 실행
+        const { data: countsData } = await supabase.rpc('get_profile_folder_total_counts', { p_user_id: id });
+        const countsMap: Record<string, number> = {};
+        if (!cancelled && countsData) {
+          for (const row of countsData as { folder_id: string; total_count: number }[]) {
+            countsMap[row.folder_id] = Number(row.total_count) || 0;
+          }
+        }
+        if (!cancelled) setFolderTotalCounts(countsMap);
+
+        // 2. 해당 유저가 저장한 게시물 조회 (saves 테이블)
+        const { data: savesData } = await supabase.rpc('get_profile_user_saved_posts', { p_user_id: id });
+        const savesList = (savesData ?? []) as { post_id: number; folder_id: string; created_at: string }[];
+
+        const postMap = new Map<string, PostWithFolderId>();
+        writtenPosts.forEach((p) => postMap.set(String(p.id), { ...p, saved_at: null }));
+
+        if (!cancelled && savesList.length > 0) {
+          const savedPostIds = [...new Set(savesList.map((s) => s.post_id))];
+          const saveMetaMap = new Map(savesList.map((s) => [String(s.post_id), { folder_id: s.folder_id, saved_at: s.created_at }]));
+
+          const { data: savedPostsData } = await supabase
+            .from('posts')
+            .select('*, profiles:author_id(nickname, job_title, avatar_url, bio), comments(count), likes(count), saves(count)')
+            .in('id', savedPostIds)
+            .eq('is_public', true);
+
+          if (!cancelled && savedPostsData) {
+            for (const item of savedPostsData) {
+              const meta = saveMetaMap.get(String(item.id));
+              const mapped: PostWithFolderId = {
+                ...mapPostData(item),
+                folder_id: meta?.folder_id ?? null,
+                saved_at: meta?.saved_at ?? null,
+              };
+              const existing = postMap.get(String(item.id));
+              if (existing) {
+                postMap.set(String(item.id), { ...existing, folder_id: mapped.folder_id ?? existing.folder_id, saved_at: mapped.saved_at ?? existing.saved_at });
+              } else {
+                postMap.set(String(item.id), mapped);
+              }
+            }
+          }
+        }
+        const merged = Array.from(postMap.values()).sort(
+          (a, b) => new Date(b.saved_at ?? b.created_at).getTime() - new Date(a.saved_at ?? a.created_at).getTime()
+        );
+        if (!cancelled) setUserPosts(merged);
+
+        // 3. 해당 유저가 생성한 폴더 목록 조회
         let folderList: FolderType[] = [];
         const { data: foldersData, error: foldersError } = await supabase
           .rpc('get_folders_by_user', { p_user_id: id });
@@ -206,6 +254,7 @@ const UserProfile = () => {
           setProfile(null);
           setUserPosts([]);
           setFolders([]);
+          setFolderTotalCounts({});
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -305,6 +354,7 @@ const UserProfile = () => {
     job_title: profile.job_title ?? '',
   };
   const isOwnProfile = currentUser?.id === profile.id;
+  const hasFoldersWithContent = folders.some((f) => (folderTotalCounts[f.id] ?? 0) > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -399,11 +449,15 @@ const UserProfile = () => {
           </div>
 
           <section>
+            {/* 상단: 폴더 클릭 시 '폴더 이름 (전체개수)'만, 'OOO의 스토리' 삭제 */}
             <h2 className="font-heading text-xl font-semibold text-foreground mb-6">
-              {user.nickname}의 스토리
               {selectedFolder
-                ? ` · ${selectedFolder.id === 'all' ? '전체 게시물' : selectedFolder.name}`
-                : ` (${userPosts.length})`}
+                ? selectedFolder.id === 'all'
+                  ? `전체 게시물 (${userPosts.length})`
+                  : `${selectedFolder.name} (${folderTotalCounts[selectedFolder.id] ?? 0})`
+                : hasFoldersWithContent
+                  ? '폴더 목록'
+                  : `최근 게시물 (${userPosts.length})`}
             </h2>
 
             {/* Case A: 게시물이 없음 */}
@@ -413,11 +467,9 @@ const UserProfile = () => {
               </p>
             )}
 
-            {/* Case B: 게시물은 있는데, 폴더가 없거나 모든 폴더가 비어 있음 → 일자형 리스트 */}
-            {userPosts.length > 0 &&
-              (folders.length === 0 ||
-                !folders.some((f) => userPosts.some((p) => p.folder_id === f.id))) && (
-              <div className="space-y-6">
+            {/* Case B: 게시물은 있으나 폴더가 없거나 모든 폴더가 비어 있음 → 최근 게시물 세로 스크롤 리스트 */}
+            {userPosts.length > 0 && !hasFoldersWithContent && (
+              <div className="space-y-6 overflow-y-auto">
                 {userPosts.map((post) => (
                   <StoryCard
                     key={post.id}
@@ -430,10 +482,8 @@ const UserProfile = () => {
               </div>
             )}
 
-            {/* Case C: 게시물 + 폴더 있고, 최소 한 폴더에 글이 있음 → 폴더 그리드 또는 폴더 상세 */}
-            {userPosts.length > 0 &&
-              folders.length > 0 &&
-              folders.some((f) => userPosts.some((p) => p.folder_id === f.id)) && (
+            {/* Case C: 게시물 + 최소 1개 폴더에 글이 있음 → 마이페이지와 동일한 폴더 카드 그리드 */}
+            {userPosts.length > 0 && hasFoldersWithContent && (
               <>
                 {selectedFolder ? (
                   <div className="space-y-4">
@@ -463,63 +513,65 @@ const UserProfile = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
-                    {/* 전체 게시물 카드 (마이페이지 '최근 게시물'과 동일 스타일) */}
+                    {/* 전체 게시물 카드 - 마이페이지와 동일 스타일 */}
                     <button
                       type="button"
                       onClick={() => setSelectedFolder({ id: 'all', name: '전체 게시물' })}
                       className="block w-full text-left bg-card rounded-lg border border-border p-6 hover:shadow-card-hover transition-all overflow-hidden"
                     >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Folder className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <h3 className="font-medium text-foreground truncate flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-4 min-w-0">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Folder className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <h3 className="font-medium text-foreground truncate">
                               전체 게시물
                             </h3>
-                            <span className="text-sm text-muted-foreground font-normal flex-shrink-0">
-                              {userPosts.length}
-                            </span>
                           </div>
                         </div>
+                        {userPosts.length > 0 && (
+                          <span className="text-sm text-muted-foreground font-normal flex-shrink-0">
+                            {userPosts.length}
+                          </span>
+                        )}
                       </div>
                     </button>
-                    {/* 유저 폴더 카드: 게시물이 1개 이상인 폴더만 표시 */}
+                    {/* 폴더 카드 - 마이페이지와 동일 스타일 (이름 왼쪽, 숫자 오른쪽 끝) */}
                     {folders
-                      .filter((folder) => userPosts.some((p) => p.folder_id === folder.id))
+                      .filter((folder) => (folderTotalCounts[folder.id] ?? 0) > 0)
                       .map((folder) => {
-                      const count = userPosts.filter((p) => p.folder_id === folder.id).length;
-                      return (
-                        <button
-                          key={folder.id}
-                          type="button"
-                          onClick={() => setSelectedFolder(folder)}
-                          className="block w-full text-left bg-card rounded-lg border border-border p-6 hover:shadow-card-hover transition-all overflow-hidden"
-                        >
-                          <div className="flex items-center gap-4 min-w-0">
-                            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Folder className="h-6 w-6 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0 overflow-hidden">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <h3 className="font-medium text-foreground truncate flex-1 min-w-0">
-                                  {folder.name}
-                                </h3>
-                                <span className="text-sm text-muted-foreground font-normal flex-shrink-0">
-                                  {count}
-                                </span>
+                        const count = folderTotalCounts[folder.id] ?? 0;
+                        return (
+                          <button
+                            key={folder.id}
+                            type="button"
+                            onClick={() => setSelectedFolder(folder)}
+                            className="block w-full text-left bg-card rounded-lg border border-border p-6 hover:shadow-card-hover transition-all overflow-hidden"
+                          >
+                            <div className="flex items-center justify-between gap-4 min-w-0">
+                              <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  <Folder className="h-6 w-6 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0 overflow-hidden">
+                                  <h3 className="font-medium text-foreground truncate">
+                                    {folder.name}
+                                  </h3>
+                                  {folder.description && (
+                                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                                      {folder.description}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                              {folder.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                                  {folder.description}
-                                </p>
-                              )}
+                              <span className="text-sm text-muted-foreground font-normal flex-shrink-0">
+                                {count}
+                              </span>
                             </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
               </>

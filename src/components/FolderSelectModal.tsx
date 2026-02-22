@@ -26,11 +26,17 @@ interface FolderSelectModalProps {
 const FolderSelectModal = ({ open, onClose, onSelect, postId }: FolderSelectModalProps) => {
   const { openAuthModal } = useAuthModal();
   const [folders, setFolders] = useState<FolderType[]>([]);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [user, setUser] = useState<any>(null);
+
+  // 현재 저장된 폴더 제외한 목록 (다른 폴더로 이동할 때만 사용)
+  const otherFolders = currentFolderId
+    ? folders.filter((f) => f.id !== currentFolderId)
+    : folders;
 
   // 현재 로그인된 사용자 정보 가져오기
   useEffect(() => {
@@ -43,38 +49,41 @@ const FolderSelectModal = ({ open, onClose, onSelect, postId }: FolderSelectModa
     getCurrentUser();
   }, []);
 
-  // 폴더 목록 가져오기
+  // 폴더 목록 + 현재 저장 폴더 가져오기
   useEffect(() => {
     if (open && user) {
-      fetchFolders();
+      loadData();
     }
-  }, [open, user]);
+  }, [open, user, postId]);
 
-  const fetchFolders = async () => {
+  const loadData = async () => {
+    if (!user) return;
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      // 이미 가져온 user 객체 사용
-      if (!user) {
-        console.error('User not authenticated');
-        return;
-      }
-      
-      const { data, error } = await supabase
-        .from('folders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching folders:', error);
+      const [foldersRes, saveRes] = await Promise.all([
+        supabase
+          .from('folders')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false }),
+        postId
+          ? supabase
+              .from('saves')
+              .select('folder_id')
+              .eq('post_id', postId)
+              .eq('user_id', user.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      if (foldersRes.error) {
         toast.error('폴더를 불러오는데 실패했습니다');
         return;
       }
-
-      setFolders(data || []);
+      setFolders(foldersRes.data || []);
+      const saveData = postId ? (saveRes as { data?: { folder_id: string } })?.data : null;
+      setCurrentFolderId(saveData?.folder_id ?? null);
     } catch (err) {
-      console.error('Error fetching folders:', err);
+      console.error('Error loading folders:', err);
       toast.error('폴더를 불러오는데 실패했습니다');
     } finally {
       setIsLoading(false);
@@ -200,15 +209,11 @@ const FolderSelectModal = ({ open, onClose, onSelect, postId }: FolderSelectModa
             </form>
           )}
 
-          {/* 폴더 리스트 */}
+          {/* 폴더 리스트 (현재 폴더 제외) */}
           <div className="max-h-[400px] overflow-y-auto space-y-2 overflow-x-hidden">
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">
                 폴더를 불러오는 중...
-              </div>
-            ) : folders.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                폴더가 없습니다. 새 폴더를 만들어보세요.
               </div>
             ) : (
               <>
@@ -221,24 +226,34 @@ const FolderSelectModal = ({ open, onClose, onSelect, postId }: FolderSelectModa
                     저장 취소
                   </button>
                 )}
-                
-                {/* 폴더 목록 */}
-                {folders.map((folder) => (
-                  <button
-                    key={folder.id}
-                    onClick={() => handleSelectFolder(folder.id)}
-                    className="w-full grid grid-cols-[auto_1fr] items-center gap-3 px-4 py-3 rounded-lg border border-border hover:bg-accent transition-colors overflow-hidden min-w-0"
-                    style={{ maxWidth: '100%' }}
-                  >
-                    <Folder className="h-5 w-5 text-primary flex-shrink-0" />
-                    <span 
-                      className="truncate text-left font-medium min-w-0"
-                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+
+                {/* 폴더 목록: 현재 저장된 폴더 제외, 다른 폴더만 표시 */}
+                {otherFolders.length > 0 ? (
+                  otherFolders.map((folder) => (
+                    <button
+                      key={folder.id}
+                      onClick={() => handleSelectFolder(folder.id)}
+                      className="w-full grid grid-cols-[auto_1fr] items-center gap-3 px-4 py-3 rounded-lg border border-border hover:bg-accent transition-colors overflow-hidden min-w-0"
+                      style={{ maxWidth: '100%' }}
                     >
-                      {folder.name}
-                    </span>
-                  </button>
-                ))}
+                      <Folder className="h-5 w-5 text-primary flex-shrink-0" />
+                      <span
+                        className="truncate text-left font-medium min-w-0"
+                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}
+                      >
+                        {folder.name}
+                      </span>
+                    </button>
+                  ))
+                ) : postId ? (
+                  /* 저장된 상태에서 다른 폴더가 없음: 리스트 영역 비움 (새 폴더 만들기 + 저장 취소만 노출) */
+                  null
+                ) : (
+                  /* 새 저장 시 폴더가 전혀 없음 */
+                  <div className="text-center py-8 text-muted-foreground">
+                    폴더가 없습니다. 새 폴더를 만들어보세요.
+                  </div>
+                )}
               </>
             )}
           </div>

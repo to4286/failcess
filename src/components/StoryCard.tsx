@@ -28,15 +28,17 @@ interface StoryCardProps {
   hideSaveButton?: boolean;
   shouldSaveToHistory?: boolean; // 최근 검색어에 저장할지 여부 (기본값: true)
   searchKeyword?: string; // 검색 결과 페이지에서 온 경우의 검색 키워드
-  /** 폴더 상세 등에서 저장 취소/이동 시 리스트에서 해당 게시물을 즉시 제거하기 위한 콜백 */
-  onSaveRemoved?: (postId: string) => void;
+  /** 폴더 상세 등에서 저장 취소/이동 시 리스트에서 해당 게시물을 즉시 제거하기 위한 콜백. movedToFolderId 있으면 이동, 없으면 저장 취소 */
+  onSaveRemoved?: (postId: string, movedToFolderId?: string) => void;
+  /** 폴더 이동 완료 시 이동 대상 폴더 ID 전달 (카운트 +1용) */
+  onSaveMoved?: (postId: string, toFolderId: string) => void;
   /** 게시물 삭제 완료 시 리스트에서 제거하기 위한 콜백 */
   onPostDeleted?: (postId: string) => void;
 }
 
 const TEST_USER_ID = '55b95afa-aa07-45e7-8630-0d608b705bca';
 
-const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, searchKeyword, onSaveRemoved, onPostDeleted }: StoryCardProps) => {
+const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, searchKeyword, onSaveRemoved, onSaveMoved, onPostDeleted }: StoryCardProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { openAuthModal } = useAuthModal();
@@ -278,7 +280,8 @@ const StoryCard = ({ post, hideSaveButton = false, shouldSaveToHistory = true, s
                 .update({ updated_at: new Date().toISOString() })
                 .eq('id', folderId);
             }
-            onSaveRemoved?.(post.id);
+            onSaveRemoved?.(post.id, folderId);
+            onSaveMoved?.(post.id, folderId);
             toast.success('폴더로 이동되었습니다', {
               position: 'top-center',
               duration: 2000,
