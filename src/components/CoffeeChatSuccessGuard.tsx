@@ -58,16 +58,16 @@ const CoffeeChatSuccessGuard = () => {
         return;
       }
       const receiverIds = [...new Set(rows.map((r: any) => r.receiver_id))];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, nickname, avatar_url, email')
-        .in('id', receiverIds);
-      const profileMap = new Map(
-        (profilesData ?? []).map((p: any) => [
-          p.id,
-          { nickname: p.nickname ?? null, avatar_url: p.avatar_url ?? null, email: p.email ?? null },
-        ])
-      );
+      const profileMap = new Map<string, { nickname: string | null; avatar_url: string | null; email: string | null }>();
+      for (const rid of receiverIds) {
+        const { data } = await supabase.rpc('get_coffee_chat_partner_profile', { p_partner_id: rid });
+        const row = Array.isArray(data) && data[0] ? data[0] : null;
+        profileMap.set(rid, {
+          nickname: row?.nickname ?? null,
+          avatar_url: row?.avatar_url ?? null,
+          email: row?.email ?? null,
+        });
+      }
       const merged: CoffeeChatRequestAccepted[] = rows.map((r: any) => ({
         ...r,
         receiver: profileMap.get(r.receiver_id) ?? { nickname: null, avatar_url: null, email: null },

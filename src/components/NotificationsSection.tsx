@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getRelativeTime, isValidImageUrl } from '@/lib/utils';
@@ -78,9 +78,7 @@ const NotificationItemRow = ({
       </div>
       <div className="flex-1 min-w-0">
         <p
-          className={`text-[13px] text-foreground group-hover:text-primary transition-colors leading-snug ${
-            isWide ? 'line-clamp-3' : 'line-clamp-2'
-          }`}
+          className="text-[13px] text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2"
         >
           {renderNotificationContent(n.content)}
         </p>
@@ -351,8 +349,11 @@ const NotificationsSection = () => {
   }, [showAllModal, hasMoreAll, loadingMore, loadMoreAll]);
 
   const [emailModalUser, setEmailModalUser] = useState<{
+    partnerId: string;
     nickname: string;
     email: string | null;
+    avatar_url: string | null;
+    loading?: boolean;
   } | null>(null);
 
   const handleNotificationClick = async (n: NotificationItem, closeModal?: boolean) => {
@@ -376,15 +377,22 @@ const NotificationsSection = () => {
     }
     if (n.type === 'coffee_accept') {
       if (n.sender_id) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('nickname, email')
-          .eq('id', n.sender_id)
-          .single();
-        setEmailModalUser({
-          nickname: data?.nickname ?? '상대방',
-          email: data?.email ?? null,
-        });
+        setEmailModalUser({ partnerId: n.sender_id, nickname: '상대방', email: null, avatar_url: null, loading: true });
+        try {
+          const { data, error } = await supabase.rpc('get_coffee_chat_partner_profile', {
+            p_partner_id: n.sender_id,
+          });
+          const row = Array.isArray(data) && data[0] ? data[0] : null;
+          setEmailModalUser({
+            partnerId: n.sender_id,
+            nickname: row?.nickname ?? '상대방',
+            email: error ? null : (row?.email ?? null),
+            avatar_url: row?.avatar_url ?? null,
+            loading: false,
+          });
+        } catch {
+          setEmailModalUser({ partnerId: n.sender_id, nickname: '상대방', email: null, avatar_url: null, loading: false });
+        }
       }
       return;
     }
@@ -497,20 +505,47 @@ const NotificationsSection = () => {
 
       {/* 커피챗 수락 - 이메일 공개 모달 */}
       <Dialog open={!!emailModalUser} onOpenChange={(open) => !open && setEmailModalUser(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" hideClose>
+          <button
+            type="button"
+            onClick={() => setEmailModalUser(null)}
+            className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground opacity-70 hover:opacity-70 hover:bg-transparent focus:outline-none focus:ring-0"
+            aria-label="닫기"
+          >
+            <X className="h-4 w-4" />
+          </button>
           <DialogTitle className="sr-only">
             커피챗 수락 - 이메일 확인
           </DialogTitle>
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-foreground">
-              {emailModalUser?.nickname}님이 커피챗 요청을 수락했습니다
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              이메일을 복사해서 인사를 건네보세요.
-            </p>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-0.5">
+              <h3 className="text-lg font-bold text-foreground">
+                {emailModalUser?.nickname}님이 커피챗 요청을 수락했습니다
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                이메일을 복사해서 인사를 건네보세요.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <Link
+                to={emailModalUser?.partnerId ? `/user/${emailModalUser.partnerId}` : '#'}
+                className="cursor-pointer rounded-full focus:outline-none focus:ring-0"
+                onClick={() => setEmailModalUser(null)}
+              >
+                <Avatar className="h-16 w-16">
+                  {isValidImageUrl(emailModalUser?.avatar_url) ? (
+                    <AvatarImage src={emailModalUser!.avatar_url!} alt={emailModalUser?.nickname ?? ''} className="object-cover" />
+                  ) : null}
+                  <AvatarPlaceholder />
+                </Avatar>
+              </Link>
+              <span className="font-medium text-foreground">{emailModalUser?.nickname}</span>
+            </div>
             <div className="flex items-center gap-2 rounded-xl bg-muted p-3">
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                {emailModalUser?.email ?? '(이메일 없음)'}
+                {emailModalUser?.loading
+                  ? '불러오는 중...'
+                  : (emailModalUser?.email ?? '(이메일 없음)')}
               </span>
               <button
                 type="button"
@@ -523,7 +558,7 @@ const NotificationsSection = () => {
                     toast.error('복사에 실패했습니다.');
                   }
                 }}
-                disabled={!emailModalUser?.email}
+                disabled={emailModalUser?.loading || !emailModalUser?.email}
                 className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
                 복사하기

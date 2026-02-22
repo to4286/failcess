@@ -402,23 +402,12 @@ const CommentSection = ({ postId, postAuthorId }: CommentSectionProps) => {
       }
 
       if (data && data.length > 0) {
-        const commentContent = newComment.trim();
         await fetchComments();
         setNewComment('');
         if (isFirstCommentOnOthersPost) {
           setShowNotificationModal(true);
         }
-        // 댓글 알림 생성: RPC 호출만 사용 (notifications 직접 INSERT 금지)
-        if (postId) {
-          const { error: rpcError } = await supabase.rpc('create_comment_notification', {
-            p_post_id: postId.toString(),
-            p_comment_content: commentContent,
-            p_commenter_id: user.id,
-          });
-          if (rpcError) {
-            console.error('[알림] RPC 실패:', rpcError);
-          }
-        }
+        // 댓글 알림: DB 트리거(trigger_create_comment_notifications)가 comments INSERT 시 자동 생성
       } else {
         throw new Error('댓글이 등록되었지만 데이터를 가져오지 못했습니다.');
       }
