@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarImage, AvatarPlaceholder } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,39 @@ interface CoffeeChatSuccessModalProps {
   onConfirmed: () => void;
 }
 
+const STORAGE_KEY = 'coffee_chat_checked_ids';
+
+function markAsViewed(requestId: string) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    const idStr = String(requestId);
+    if (!ids.includes(idStr)) ids.push(idStr);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  } catch {}
+}
+
 const CoffeeChatSuccessModal = ({ isOpen, onClose, request, onConfirmed }: CoffeeChatSuccessModalProps) => {
+  // 모달 노출 직후 즉시 '확인 완료'로 저장 → 새로고침/재접속 시 중복 노출 방지
+  useEffect(() => {
+    if (isOpen && request?.id) markAsViewed(request.id);
+  }, [isOpen, request?.id]);
+
+  const handleClose = () => {
+    if (request?.id) {
+      markAsViewed(request.id);
+      supabase
+        .from('coffee_chat_requests')
+        .update({ is_sender_checked: true })
+        .eq('id', request.id)
+        .then(({ error }) => {
+          if (error) console.error('Failed to mark coffee chat as checked:', error);
+        });
+    }
+    onClose();
+    onConfirmed();
+  };
+
   const handleCopyEmail = async () => {
     const email = request?.receiver?.email;
     if (!email) {
@@ -43,20 +76,11 @@ const CoffeeChatSuccessModal = ({ isOpen, onClose, request, onConfirmed }: Coffe
 
   const handleConfirm = async () => {
     if (!request?.id) {
-      onClose();
-      onConfirmed();
+      handleClose();
       return;
     }
-    // 즉시 localStorage에 저장 (새로고침/재로그인 시 중복 표시 방지)
-    try {
-      const raw = localStorage.getItem('coffee_chat_checked_ids');
-      const ids: string[] = raw ? JSON.parse(raw) : [];
-      const idStr = String(request.id);
-      if (!ids.includes(idStr)) ids.push(idStr);
-      localStorage.setItem('coffee_chat_checked_ids', JSON.stringify(ids));
-    } catch {}
-    onClose();
-    onConfirmed();
+    markAsViewed(request.id);
+    handleClose();
     const { error } = await supabase
       .from('coffee_chat_requests')
       .update({ is_sender_checked: true })
@@ -79,7 +103,7 @@ const CoffeeChatSuccessModal = ({ isOpen, onClose, request, onConfirmed }: Coffe
       <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground opacity-70 hover:opacity-70 hover:bg-transparent focus:outline-none focus:ring-0"
           aria-label="닫기"
         >
@@ -100,7 +124,7 @@ const CoffeeChatSuccessModal = ({ isOpen, onClose, request, onConfirmed }: Coffe
             <Link
               to={partnerId ? `/user/${partnerId}` : '#'}
               className="cursor-pointer rounded-full focus:outline-none focus:ring-0"
-              onClick={onClose}
+              onClick={handleClose}
             >
               <Avatar className="h-16 w-16">
                 {isValidImageUrl(receiver?.avatar_url) ? (

@@ -348,13 +348,40 @@ const NotificationsSection = () => {
     return () => el.removeEventListener('scroll', onScroll);
   }, [showAllModal, hasMoreAll, loadingMore, loadMoreAll]);
 
+  const COFFEE_CHAT_CHECKED_KEY = 'coffee_chat_checked_ids';
+
   const [emailModalUser, setEmailModalUser] = useState<{
     partnerId: string;
     nickname: string;
     email: string | null;
     avatar_url: string | null;
+    requestId?: string;
     loading?: boolean;
   } | null>(null);
+
+  const markCoffeeChatAsViewed = (requestId: string) => {
+    try {
+      const raw = localStorage.getItem(COFFEE_CHAT_CHECKED_KEY);
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      if (!ids.includes(requestId)) ids.push(requestId);
+      localStorage.setItem(COFFEE_CHAT_CHECKED_KEY, JSON.stringify(ids));
+    } catch {}
+  };
+
+  const handleCloseEmailModal = () => {
+    const rid = emailModalUser?.requestId;
+    if (rid) {
+      markCoffeeChatAsViewed(rid);
+      supabase
+        .from('coffee_chat_requests')
+        .update({ is_sender_checked: true })
+        .eq('id', rid)
+        .then(({ error }) => {
+          if (error) console.error('Failed to mark coffee chat as checked:', error);
+        });
+    }
+    setEmailModalUser(null);
+  };
 
   const handleNotificationClick = async (n: NotificationItem, closeModal?: boolean) => {
     try {
@@ -376,18 +403,31 @@ const NotificationsSection = () => {
       return;
     }
     if (n.type === 'coffee_accept') {
-      if (n.sender_id) {
+      if (n.sender_id && userId) {
         setEmailModalUser({ partnerId: n.sender_id, nickname: '상대방', email: null, avatar_url: null, loading: true });
         try {
+          const { data: reqRows } = await supabase
+            .from('coffee_chat_requests')
+            .select('id')
+            .eq('sender_id', userId)
+            .eq('receiver_id', n.sender_id)
+            .eq('status', 'accepted')
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const requestId = reqRows?.[0]?.id;
+
           const { data, error } = await supabase.rpc('get_coffee_chat_partner_profile', {
             p_partner_id: n.sender_id,
           });
           const row = Array.isArray(data) && data[0] ? data[0] : null;
+          const rid = requestId ?? undefined;
+          if (rid) markCoffeeChatAsViewed(rid);
           setEmailModalUser({
             partnerId: n.sender_id,
             nickname: row?.nickname ?? '상대방',
             email: error ? null : (row?.email ?? null),
             avatar_url: row?.avatar_url ?? null,
+            requestId: rid,
             loading: false,
           });
         } catch {
@@ -504,11 +544,11 @@ const NotificationsSection = () => {
       </Dialog>
 
       {/* 커피챗 수락 - 이메일 공개 모달 */}
-      <Dialog open={!!emailModalUser} onOpenChange={(open) => !open && setEmailModalUser(null)}>
+      <Dialog open={!!emailModalUser} onOpenChange={(open) => !open && handleCloseEmailModal()}>
         <DialogContent className="max-w-md" hideClose>
           <button
             type="button"
-            onClick={() => setEmailModalUser(null)}
+            onClick={handleCloseEmailModal}
             className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground opacity-70 hover:opacity-70 hover:bg-transparent focus:outline-none focus:ring-0"
             aria-label="닫기"
           >
@@ -530,7 +570,7 @@ const NotificationsSection = () => {
               <Link
                 to={emailModalUser?.partnerId ? `/user/${emailModalUser.partnerId}` : '#'}
                 className="cursor-pointer rounded-full focus:outline-none focus:ring-0"
-                onClick={() => setEmailModalUser(null)}
+                onClick={handleCloseEmailModal}
               >
                 <Avatar className="h-16 w-16">
                   {isValidImageUrl(emailModalUser?.avatar_url) ? (
