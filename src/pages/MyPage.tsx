@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { mockPosts } from '@/data/mockData';
-import { Post, Folder as FolderType, CoffeeChatRequestReceived, CoffeeChatRequestAccepted } from '@/types';
+import { Post, Folder as FolderType, CoffeeChatRequestReceived } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getRelativeTime, isValidImageUrl } from '@/lib/utils';
@@ -51,9 +51,6 @@ const MyPage = () => {
   const isCoffeeChatPath = location.pathname === '/mypage/coffee-chat';
   const [requests, setRequests] = useState<CoffeeChatRequestReceived[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
-  const [acceptedRequests, setAcceptedRequests] = useState<CoffeeChatRequestAccepted[]>([]);
-  const [acceptedLoading, setAcceptedLoading] = useState(false);
-  const [acceptedRefreshKey, setAcceptedRefreshKey] = useState(0);
   const [myPosts, setMyPosts] = useState<Post[]>([]);
   const [myPostsWithFolderId, setMyPostsWithFolderId] = useState<Array<Post & { folder_id?: string | null }>>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -315,54 +312,6 @@ const MyPage = () => {
       cancelled = true;
     };
   }, [user?.id]);
-
-  // 수락된 커피챗 요청 조회 — get_coffee_chat_partner_profile RPC로 상대방 프로필(닉네임, 아바타, 이메일) 조회
-  useEffect(() => {
-    if (!user?.id) {
-      setAcceptedRequests([]);
-      return;
-    }
-    let cancelled = false;
-    setAcceptedLoading(true);
-    (async () => {
-      const { data: rows, error } = await supabase
-        .from('coffee_chat_requests')
-        .select('id, sender_id, receiver_id, message, status, created_at, is_sender_checked')
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .eq('status', 'accepted')
-        .order('created_at', { ascending: false });
-      if (cancelled) return;
-      if (error || !rows?.length) {
-        setAcceptedRequests([]);
-        setAcceptedLoading(false);
-        return;
-      }
-      const profileMap = new Map<string, { nickname: string | null; avatar_url: string | null; email: string | null }>();
-      for (const r of rows) {
-        const partnerId = r.sender_id === user.id ? r.receiver_id : r.sender_id;
-        if (profileMap.has(partnerId)) continue;
-        const { data } = await supabase.rpc('get_coffee_chat_partner_profile', { p_partner_id: partnerId });
-        const row = Array.isArray(data) && data[0] ? data[0] : null;
-        profileMap.set(partnerId, {
-          nickname: row?.nickname ?? null,
-          avatar_url: row?.avatar_url ?? null,
-          email: row?.email ?? null,
-        });
-      }
-      const merged: CoffeeChatRequestAccepted[] = rows.map((r: any) => {
-        const partnerId = r.sender_id === user.id ? r.receiver_id : r.sender_id;
-        return {
-          ...r,
-          receiver: profileMap.get(partnerId) ?? { nickname: null, avatar_url: null, email: null },
-        };
-      });
-      setAcceptedRequests(merged);
-      setAcceptedLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, acceptedRefreshKey]);
 
   // 데이터 로드 (내 글 + 저장한 글)
   useEffect(() => {
@@ -997,7 +946,6 @@ const MyPage = () => {
       if (rpcError) console.warn('커피챗 알림 생성 실패 (RPC 미적용 가능):', rpcError);
     }
     setRequests((prev) => prev.filter((r) => r.id !== id));
-    setAcceptedRefreshKey((k) => k + 1);
     toast.success('커피챗을 수락했습니다.', { position: 'top-center', duration: 2000 });
   };
 
@@ -1519,87 +1467,6 @@ const MyPage = () => {
                 ) : (
                   <div className="text-center py-12 bg-card rounded-xl border border-border">
                     <p className="text-muted-foreground">아직 받은 요청이 없습니다.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* 수락된 요청 — RPC로 상대방 프로필(닉네임, 아바타, 이메일) 조회 */}
-              <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">수락된 요청</h3>
-                {acceptedLoading ? (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">불러오는 중...</p>
-                  </div>
-                ) : acceptedRequests.length > 0 ? (
-                  <div className="space-y-4">
-                    {acceptedRequests.map((req) => {
-                      const partnerId = req.sender_id === user?.id ? req.receiver_id : req.sender_id;
-                      const partner = req.receiver;
-                      return (
-                        <div
-                          key={req.id}
-                          className="bg-card rounded-lg border border-border p-5"
-                        >
-                          <div className="flex items-start gap-4">
-                            <Link to={`/user/${partnerId}`}>
-                              <Avatar className="h-10 w-10">
-                                {isValidImageUrl(partner?.avatar_url) ? (
-                                  <AvatarImage
-                                    src={partner!.avatar_url!}
-                                    alt={partner?.nickname ?? ''}
-                                  />
-                                ) : null}
-                                <AvatarPlaceholder />
-                              </Avatar>
-                            </Link>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-2">
-                                <Link
-                                  to={`/user/${partnerId}`}
-                                  className="font-medium text-foreground hover:text-navy-light transition-colors"
-                                >
-                                  {partner?.nickname ?? '알 수 없음'}
-                                </Link>
-                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                                  <Clock className="h-3 w-3" />
-                                  {getRelativeTime(req.created_at)}
-                                </div>
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-3 break-all whitespace-pre-wrap">
-                                {req.message || '(메시지 없음)'}
-                              </p>
-                              <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                                <span className="text-xs text-muted-foreground shrink-0">이메일</span>
-                                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                                  {partner?.email ?? '(이메일 없음)'}
-                                </span>
-                                {partner?.email && (
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="shrink-0 h-7 text-xs"
-                                    onClick={async () => {
-                                      try {
-                                        await navigator.clipboard.writeText(partner.email!);
-                                        toast.success('복사되었습니다', { duration: 2000 });
-                                      } catch {
-                                        toast.error('복사에 실패했습니다.');
-                                      }
-                                    }}
-                                  >
-                                    복사
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-card rounded-xl border border-border">
-                    <p className="text-muted-foreground">수락된 요청이 없습니다.</p>
                   </div>
                 )}
               </div>
